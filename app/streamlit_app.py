@@ -6,6 +6,7 @@ to explore industrial vibration scenarios.
 """
 
 from pathlib import Path
+from html import escape
 import sys
 
 import pandas as pd
@@ -377,6 +378,205 @@ def render_human_validation(df: pd.DataFrame) -> None:
             hide_index=True,
         )
 
+def get_criticality_color(row: pd.Series) -> str:
+    """Return a card accent color based on severity or risk indicators."""
+    severity = str(row.get("severity_level", "")).lower()
+    max_severity = str(row.get("max_recorded_severity", "")).lower()
+
+    severity_reference = severity or max_severity
+
+    if severity_reference == "high":
+        return "#D32F2F"  # red
+
+    if severity_reference == "medium":
+        return "#FBC02D"  # yellow
+
+    if severity_reference == "low":
+        return "#388E3C"  # green
+
+    risk_fields = [
+        "anomaly_probability",
+        "max_anomaly_probability",
+        "avg_anomaly_probability",
+        "anomaly_score",
+        "max_anomaly_score",
+        "avg_anomaly_score",
+    ]
+
+    numeric_values = []
+
+    for field in risk_fields:
+        value = row.get(field, None)
+
+        if pd.notna(value):
+            numeric_values.append(float(value))
+
+    if numeric_values:
+        max_risk = max(numeric_values)
+
+        if max_risk >= 0.70:
+            return "#D32F2F"  # red
+
+        if max_risk >= 0.40:
+            return "#FBC02D"  # yellow
+
+    return "#388E3C"  # green
+
+def render_query_result_cards(result_df: pd.DataFrame) -> None:
+    """Render database query results as compact user-friendly cards."""
+    if result_df.empty:
+        st.info("No rows returned.")
+        return
+
+    max_cards = min(len(result_df), 12)
+    cards_per_row = 3
+    rows_to_render = result_df.head(max_cards).reset_index(drop=True)
+
+    st.caption(f"Showing {max_cards} result card(s).")
+
+    for start_index in range(0, max_cards, cards_per_row):
+        columns = st.columns(cards_per_row)
+
+        for column_index, column_container in enumerate(columns):
+            row_index = start_index + column_index
+
+            if row_index >= max_cards:
+                continue
+
+            row = rows_to_render.iloc[row_index]
+
+            title_parts = []
+
+            if "asset_name" in result_df.columns and pd.notna(row["asset_name"]):
+                title_parts.append(str(row["asset_name"]))
+
+            if "scenario_label" in result_df.columns and pd.notna(row["scenario_label"]):
+                title_parts.append(str(row["scenario_label"]))
+
+            elif "scenario_name" in result_df.columns and pd.notna(row["scenario_name"]):
+                title_parts.append(str(row["scenario_name"]))
+
+            if "measurement_id" in result_df.columns and pd.notna(row["measurement_id"]):
+                title_parts.append(f"Measurement {row['measurement_id']}")
+
+            card_title = " | ".join(title_parts) if title_parts else f"Result {row_index + 1}"
+            card_title = escape(card_title)
+
+            metric_items = [
+                ("Severity", "severity_level"),
+                ("Max severity", "max_recorded_severity"),
+
+                ("Avg RMS velocity", "avg_rms_velocity"),
+                ("RMS velocity", "rms_velocity"),
+                ("Peak velocity", "peak_velocity"),
+                ("Avg peak velocity", "avg_peak_velocity"),
+
+                ("Anomaly score", "anomaly_score"),
+                ("Avg anomaly score", "avg_anomaly_score"),
+                ("Max anomaly score", "max_anomaly_score"),
+
+                ("Anomaly probability", "anomaly_probability"),
+                ("Avg anomaly probability", "avg_anomaly_probability"),
+                ("Max anomaly probability", "max_anomaly_probability"),
+
+                ("Total measurements", "total_measurements"),
+                ]
+
+            metric_html_parts = []
+
+            for label, field in metric_items:
+                if field in result_df.columns and pd.notna(row[field]):
+                    value = row[field]
+
+                    if isinstance(value, float):
+                        value = f"{value:.3f}"
+
+                    metric_html_parts.append(
+                        "<div style='margin-bottom:8px;'>"
+                        f"<div style='font-size:11px;color:#6B7280;line-height:1.1;'>{escape(label)}</div>"
+                        f"<div style='font-size:16px;font-weight:700;color:#111827;line-height:1.2;'>{escape(str(value))}</div>"
+                        "</div>"
+                    )
+
+            metric_html = "".join(metric_html_parts[:5])
+
+            detail_fields = [
+                ("Asset type", "asset_type"),
+                ("Location", "location"),
+                ("Scenario", "scenario_name"),
+                ("Predicted label", "predicted_label"),
+                ("Model", "model_name"),
+                ("Version", "model_version"),
+                ("Timestamp", "timestamp"),
+                ("Sensor", "sensor_position"),
+            ]
+
+            detail_html_parts = []
+
+            for label, field in detail_fields:
+                if field in result_df.columns and pd.notna(row[field]):
+                    detail_html_parts.append(
+                        "<div style='font-size:11.5px;line-height:1.35;margin-bottom:3px;color:#374151;'>"
+                        f"<strong>{escape(label)}:</strong> {escape(str(row[field]))}"
+                        "</div>"
+                    )
+
+            detail_html = "".join(detail_html_parts)
+
+            explanation_html = ""
+
+            if "explanation" in result_df.columns and pd.notna(row["explanation"]):
+                explanation_html = (
+                    "<div style='font-size:11.5px;line-height:1.35;margin-top:8px;color:#374151;'>"
+                    "<strong>Explanation:</strong><br>"
+                    f"{escape(str(row['explanation']))}"
+                    "</div>"
+                )
+
+            accent_color = get_criticality_color(row)
+
+            card_html = (
+                f"<div style='"
+                f"border-left:7px solid {accent_color};"
+                "border-top:1px solid #E5E7EB;"
+                "border-right:1px solid #E5E7EB;"
+                "border-bottom:1px solid #E5E7EB;"
+                "border-radius:10px;"
+                "padding:13px 14px 12px 14px;"
+                "margin-bottom:14px;"
+                "background-color:#FFFFFF;"
+                "box-shadow:0 1px 3px rgba(0,0,0,0.05);"
+                "min-height:285px;"
+                "'>"
+                "<div style='"
+                "font-size:15px;"
+                "font-weight:700;"
+                "line-height:1.25;"
+                "color:#111827;"
+                "margin-bottom:12px;"
+                f"'>{card_title}</div>"
+                f"{metric_html}"
+                "<div style='border-top:1px solid #F0F0F0;margin:10px 0;'></div>"
+                f"{detail_html}"
+                f"{explanation_html}"
+                "</div>"
+            )
+
+            with column_container:
+                st.markdown(card_html, unsafe_allow_html=True)
+
+    if len(result_df) > max_cards:
+        st.info(
+            f"{len(result_df) - max_cards} additional row(s) are available in the full table below."
+        )
+
+    with st.expander("Show full result table", expanded=False):
+        st.dataframe(
+            result_df,
+            use_container_width=True,
+            hide_index=True,
+        )
+
 def render_ask_database() -> None:
     """Render a safe database assistant with semantic routing."""
     st.subheader("Ask the Database")
@@ -389,6 +589,25 @@ def render_ask_database() -> None:
         Only safe SELECT queries are allowed.
         """
     )
+
+    with st.expander("Supported multilingual questions", expanded=False):
+        st.markdown(
+            """
+            The semantic router currently supports predefined questions in English,
+            Portuguese, and Spanish.
+
+            **Examples**
+
+            | Intent | English | Portuguese | Spanish |
+            |---|---|---|---|
+            | Average anomaly score | average anomaly score by scenario | media do score de anomalia por cenario | promedio del score de anomalia por escenario |
+            | Highest risk assets | which assets have the highest anomaly risk | quais ativos tem maior risco de anomalia | que activos tienen mayor riesgo de anomalia |
+            | High severity diagnostics | show high severity diagnostics | mostrar diagnosticos de alta severidade | mostrar diagnosticos de alta severidad |
+            | Lubrication issues | lubrication issues | problemas de lubrificacao | problemas de lubricacion |
+            | Structural looseness | structural looseness cases | casos de folga estrutural | casos de holgura estructural |
+            | Human validation | measurements requiring human validation | medicoes que requerem validacao humana | mediciones que requieren validacion humana |
+            """
+        )
 
     example_questions = get_supported_query_examples()
 
@@ -413,66 +632,92 @@ def render_ask_database() -> None:
         if router_response["status"] == "blocked":
             st.error(router_response["message"])
 
-            st.markdown("### Execution path")
-            st.json(
-                {
-                    "domain_guard": "blocked",
-                    "semantic_router": "not executed",
-                    "matched_intent": None,
-                    "text_to_sql_fallback": "not used",
-                    "llm_usage": "not used",
-                    "sql_guard": "not executed",
-                }
-            )
+            st.markdown("### Query execution summary")
+
+            summary_col1, summary_col2, summary_col3 = st.columns(3)
+
+            with summary_col1:
+                st.markdown("#### Semantic router")
+                st.error("Blocked")
+                st.caption("Prompt outside supported domain.")
+
+            with summary_col2:
+                st.markdown("#### SQL validation")
+                st.warning("SQL validation was not executed.")
+
+            with summary_col3:
+                st.markdown("#### Execution path")
+                st.json(
+                    {
+                        "domain_guard": "blocked",
+                        "semantic_router": "not executed",
+                        "matched_intent": None,
+                        "text_to_sql_fallback": "not used",
+                        "llm_usage": "not used",
+                        "sql_guard": "not executed",
+                    }
+                )
 
             return
-        
+
         if router_response["status"] == "matched":
             sql_query = router_response["sql"]
-
-            st.markdown("### Semantic router")
-            st.success("Prompt matched a predefined SQL template.")
-            st.info(f"Matched intent: {router_response['intent']}")
-
-            st.markdown("### Execution path")
-            st.json(
-                {
-                    "domain_guard": "passed",
-                    "semantic_router": "matched",
-                    "matched_intent": router_response["intent"],
-                    "text_to_sql_fallback": "not used",
-                    "llm_usage": "not used",
-                    "sql_guard": "pending",
-                }
-            )
 
             from src.database.queries import read_sql_query
             from src.llm.sql_guard import validate_sql_query
 
             is_valid, validation_message = validate_sql_query(sql_query)
 
-            if not is_valid:
-                result_df = pd.DataFrame()
-            else:
-                result_df = read_sql_query(sql_query)
-
-            st.caption(f"Rows returned: {len(result_df)}")
-
             if is_valid:
-                st.success("SQL Guard: passed")
+                result_df = read_sql_query(sql_query)
             else:
-                st.error("SQL Guard: blocked")
-
-            st.caption(f"Rows returned: {len(result_df)}")
+                result_df = pd.DataFrame()
 
         else:
-            st.markdown("### Semantic router")
-            st.warning(router_response["message"])
-            st.info("Fallback: using controlled mock Text-to-SQL.")
+            sql_query, result_df, validation_message = run_text_to_sql(user_question)
+            is_valid = (
+                validation_message == "SQL query is valid."
+                or validation_message == "SQL validation completed."
+            )
 
-            st.markdown("### Execution path")
-            st.json(
-                {
+        st.markdown("### Query execution summary")
+
+        summary_col1, summary_col2, summary_col3 = st.columns(3)
+
+        with summary_col1:
+            st.markdown("#### Semantic router")
+
+            if router_response["status"] == "matched":
+                st.success("Matched")
+                st.caption(f"Intent: {router_response['intent']}")
+            else:
+                st.warning("Not matched")
+                st.caption("Fallback used")
+
+        with summary_col2:
+            st.markdown("#### SQL validation")
+
+            if is_valid:
+                st.success(validation_message)
+            else:
+                st.error(validation_message)
+
+            st.caption(f"Rows returned: {len(result_df)}")
+
+        with summary_col3:
+            st.markdown("#### Execution path")
+
+            if router_response["status"] == "matched":
+                execution_path = {
+                    "domain_guard": "passed",
+                    "semantic_router": "matched",
+                    "matched_intent": router_response["intent"],
+                    "text_to_sql_fallback": "not used",
+                    "llm_usage": "not used",
+                    "sql_guard": "passed" if is_valid else "blocked",
+                }
+            else:
+                execution_path = {
                     "domain_guard": "passed",
                     "semantic_router": "not matched",
                     "matched_intent": None,
@@ -480,29 +725,19 @@ def render_ask_database() -> None:
                     "llm_usage": "not used",
                     "sql_guard": "handled by mock text-to-sql flow",
                 }
-            )
 
-            sql_query, result_df, validation_message = run_text_to_sql(user_question)
+            st.json(execution_path)
 
-        st.markdown("### SQL validation")
-        if validation_message == "SQL query is valid." or validation_message == "SQL validation completed.":
-            st.success(validation_message)
-        else:
-            st.error(validation_message)
 
-        st.markdown("### Generated SQL")
-        st.code(sql_query.strip(), language="sql")
 
         st.markdown("### Result")
 
-        if result_df.empty:
-            st.info("No rows returned.")
-        else:
-            st.dataframe(
-                result_df,
-                use_container_width=True,
-                hide_index=True,
-            )
+        render_query_result_cards(result_df)
+
+        st.markdown("### Generated SQL")
+
+        with st.expander("Show generated SQL", expanded=False):
+            st.code(sql_query.strip(), language="sql")
 
 def main() -> None:
     """Run the Streamlit app."""
