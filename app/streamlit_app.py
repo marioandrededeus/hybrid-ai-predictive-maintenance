@@ -25,6 +25,7 @@ from src.monitoring.human_feedback import (
 )  # noqa: E402
 from src.llm.text_to_sql import run_text_to_sql  # noqa: E402
 from src.agents.maintenance_agent import run_maintenance_agent
+from src.llm.semantic_query_router import route_prompt_to_sql
 
 st.set_page_config(
     page_title="Hybrid AI for Predictive Maintenance",
@@ -374,18 +375,24 @@ def render_human_validation(df: pd.DataFrame) -> None:
         )
 
 def render_ask_database() -> None:
-    """Render a safe mock Text-to-SQL interface."""
+    """Render a safe database assistant with semantic routing."""
     st.subheader("Ask the Database")
 
     st.markdown(
         """
         Ask questions about the predictive maintenance database.
-        In this first version, the app uses a controlled mock Text-to-SQL layer.
+        The app first tries to match the question with a safe predefined SQL template.
+        If no template is found, it falls back to the controlled mock Text-to-SQL layer.
         Only safe SELECT queries are allowed.
         """
     )
 
     example_questions = [
+        "Show average anomaly score by scenario",
+        "Show average anomaly probability by scenario",
+        "Which scenario has the highest risk?",
+        "Which measurements require human validation?",
+        "Show average RMS velocity by scenario",
         "Show me all scenarios",
         "Which assets are monitored?",
         "Show anomaly risk by measurement",
@@ -402,7 +409,7 @@ def render_ask_database() -> None:
     user_question = st.text_input(
         "Or type your own question",
         value=selected_example,
-        placeholder="Example: Show lubrication issues",
+        placeholder="Example: Show average anomaly score by scenario",
     )
 
     if st.button("Run database question"):
@@ -410,10 +417,48 @@ def render_ask_database() -> None:
             st.warning("Please type or select a question.")
             return
 
-        sql_query, result_df, validation_message = run_text_to_sql(user_question)
+        router_response = route_prompt_to_sql(user_question)
+
+        if router_response["status"] == "blocked":
+            st.error(router_response["message"])
+            return
+        
+        if router_response["status"] == "matched":
+            sql_query = router_response["sql"]
+
+            st.markdown("### Semantic router")
+            st.success("Prompt matched a predefined SQL template.")
+            st.info(f"Matched intent: {router_response['intent']}")
+
+            from src.database.queries import read_sql_query
+            from src.llm.sql_guard import validate_sql_query
+
+            validation_result = validate_sql_query(sql_query)
+
+            if isinstance(validation_result, dict):
+                is_valid = validation_result.get("is_valid", False)
+                validation_message = validation_result.get("message", "")
+            else:
+                validation_message = str(validation_result)
+                is_valid = "valid" in validation_message.lower()
+
+            if not is_valid:
+                result_df = pd.DataFrame()
+            else:
+                result_df = read_sql_query(sql_query)
+                validation_message = "SQL query is valid."
+
+            st.caption(f"Rows returned: {len(result_df)}")
+
+        else:
+            st.markdown("### Semantic router")
+            st.warning(router_response["message"])
+            st.info("Fallback: using controlled mock Text-to-SQL.")
+
+            sql_query, result_df, validation_message = run_text_to_sql(user_question)
 
         st.markdown("### SQL validation")
-        if validation_message == "SQL query is valid.":
+        if validation_message == "SQL query is valid." or validation_message == "SQL validation completed.":
             st.success(validation_message)
         else:
             st.error(validation_message)
