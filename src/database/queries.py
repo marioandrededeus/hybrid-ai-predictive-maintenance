@@ -235,6 +235,21 @@ def get_full_diagnostic_view() -> pd.DataFrame:
     return read_sql_query(query)
 
 
+def get_scenario_by_id(scenario_id: int) -> dict | None:
+    """
+    Return one maintenance scenario filtered by scenario_id.
+    """
+
+    scenarios_df = get_scenarios()
+
+    filtered_df = scenarios_df[scenarios_df["scenario_id"] == scenario_id]
+
+    if filtered_df.empty:
+        return None
+
+    return filtered_df.iloc[0].to_dict()
+
+
 def main() -> None:
     """Quick validation for manual execution."""
     print("Assets")
