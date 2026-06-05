@@ -449,20 +449,14 @@ def render_ask_database() -> None:
             from src.database.queries import read_sql_query
             from src.llm.sql_guard import validate_sql_query
 
-            validation_result = validate_sql_query(sql_query)
-
-            if isinstance(validation_result, dict):
-                is_valid = validation_result.get("is_valid", False)
-                validation_message = validation_result.get("message", "")
-            else:
-                validation_message = str(validation_result)
-                is_valid = validation_message.strip() == "SQL query is valid."
+            is_valid, validation_message = validate_sql_query(sql_query)
 
             if not is_valid:
                 result_df = pd.DataFrame()
             else:
                 result_df = read_sql_query(sql_query)
-                validation_message = "SQL query is valid."
+
+            st.caption(f"Rows returned: {len(result_df)}")
 
             if is_valid:
                 st.success("SQL Guard: passed")
