@@ -116,12 +116,29 @@ def get_measurements_by_scenario(scenario_name: str) -> pd.DataFrame:
         vm.peak_velocity,
         vm.crest_factor,
         vm.temperature_celsius,
-        vm.load_percentage
+        vm.load_percentage,
+        sf.dominant_frequency_hz,
+        sf.low_frequency_energy,
+        sf.mid_frequency_energy,
+        sf.high_frequency_energy,
+        sf.broadband_energy,
+        sf.harmonic_ratio,
+        sf.subharmonic_ratio,
+        sf.anomaly_score,
+        md.anomaly_probability,
+        md.predicted_label,
+        md.model_name,
+        md.model_version,
+        md.explanation
     FROM vibration_measurements vm
     JOIN assets a
         ON vm.asset_id = a.asset_id
     JOIN scenarios s
         ON vm.scenario_id = s.scenario_id
+    LEFT JOIN spectral_features sf
+        ON vm.measurement_id = sf.measurement_id
+    LEFT JOIN ml_diagnostics md
+        ON vm.measurement_id = md.measurement_id
     WHERE s.scenario_name = ?
     ORDER BY vm.timestamp;
     """

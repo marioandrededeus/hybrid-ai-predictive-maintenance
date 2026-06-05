@@ -24,6 +24,7 @@ from src.monitoring.human_feedback import (
     save_human_feedback,
 )  # noqa: E402
 from src.llm.text_to_sql import run_text_to_sql  # noqa: E402
+from src.agents.maintenance_agent import run_maintenance_agent
 
 st.set_page_config(
     page_title="Hybrid AI for Predictive Maintenance",
@@ -444,13 +445,14 @@ def main() -> None:
         st.warning("No data found for the selected scenario.")
         return
 
-    tab_overview, tab_summary, tab_recommendations, tab_validation, tab_ask_db, tab_data = st.tabs(
+    tab_overview, tab_summary, tab_recommendations, tab_validation, tab_ask_db, tab_agent, tab_data = st.tabs(
         [
             "Overview",
             "Scenario Summary",
             "Recommendations",
             "Human Validation",
             "Ask the Database",
+            "Maintenance Agent",
             "Diagnostic Data",
         ]
     )
@@ -474,6 +476,59 @@ def main() -> None:
 
     with tab_data:
         render_data_table(filtered_df)
+
+    with tab_agent:
+        st.header("Maintenance Agent")
+
+        st.write(
+            "This deterministic agent orchestrates database queries, scenario summaries, "
+            "rule-based recommendations, and operational reasoning without using a real LLM yet."
+        )
+
+        scenarios_df = get_scenarios()
+
+        scenario_options = dict(
+            zip(
+                scenarios_df["scenario_label"],
+                scenarios_df["scenario_id"]
+            )
+        )
+
+        selected_scenario_label = st.selectbox(
+            "Select an industrial scenario",
+            options=list(scenario_options.keys()),
+            key="agent_scenario_selector"
+        )
+
+        selected_scenario_id = scenario_options[selected_scenario_label]
+
+        if st.button("Run Maintenance Agent"):
+            agent_response = run_maintenance_agent(selected_scenario_id)
+
+            st.subheader("Agent Status")
+
+            if agent_response["status"] == "success":
+                st.success(agent_response["message"])
+            else:
+                st.error(agent_response["message"])
+
+            st.subheader("Selected Scenario")
+            st.json(agent_response["scenario"])
+
+            st.subheader("Scenario Summary")
+
+            if agent_response["summary"] is not None:
+                st.json(agent_response["summary"])
+            else:
+                st.warning("No summary found for this scenario.")
+
+            st.subheader("Recommendations")
+            st.dataframe(agent_response["recommendations"], use_container_width=True)
+
+            st.subheader("Agent Reasoning")
+            for step in agent_response["agent_reasoning"]:
+                st.markdown(f"- {step}")
+    
 
 
 if __name__ == "__main__":
