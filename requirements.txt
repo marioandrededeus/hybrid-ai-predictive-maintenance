@@ -1,0 +1,38 @@
+# Core
+numpy
+pandas
+scipy
+
+# Visualization and app
+streamlit
+plotly
+matplotlib
+
+# Machine Learning
+scikit-learn
+joblib
+
+# Database
+sqlalchemy
+
+# Environment variables
+python-dotenv
+
+# LLM and orchestration
+openai
+langchain
+langchain-openai
+langchain-community
+
+# RAG
+chromadb
+pypdf
+
+# Utilities
+pydantic
+tqdm
+
+# Development
+pytest
+black
+ruff
