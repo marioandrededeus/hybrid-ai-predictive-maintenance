@@ -235,6 +235,68 @@ QUERY_TEMPLATES = [
             LIMIT 50;
         """,
     },
+    {
+        "intent": "monitored_assets",
+        "keywords": [
+            "which assets are monitored",
+            "monitored assets",
+            "show assets",
+            "list assets",
+            "industrial assets",
+            "which equipment",
+            "monitored equipment",
+        ],
+        "sql": """
+            SELECT
+                asset_id,
+                asset_name,
+                asset_type,
+                location,
+                manufacturer,
+                installation_year
+            FROM assets
+            ORDER BY asset_id
+            LIMIT 50;
+        """,
+    },
+    {
+        "intent": "anomaly_risk_by_measurement",
+        "keywords": [
+            "anomaly risk by measurement",
+            "risk by measurement",
+            "anomaly by measurement",
+            "show anomaly risk",
+            "measurement risk",
+            "risk per measurement",
+        ],
+        "sql": """
+            SELECT
+                vm.measurement_id,
+                vm.timestamp,
+                a.asset_name,
+                s.scenario_label,
+                s.severity_level,
+                ROUND(vm.rms_velocity, 3) AS rms_velocity,
+                ROUND(vm.peak_velocity, 3) AS peak_velocity,
+                ROUND(sf.anomaly_score, 3) AS anomaly_score,
+                ROUND(md.anomaly_probability, 3) AS anomaly_probability,
+                md.predicted_label,
+                md.explanation
+            FROM vibration_measurements vm
+            JOIN assets a
+                ON vm.asset_id = a.asset_id
+            JOIN scenarios s
+                ON vm.scenario_id = s.scenario_id
+            LEFT JOIN spectral_features sf
+                ON vm.measurement_id = sf.measurement_id
+            LEFT JOIN ml_diagnostics md
+                ON vm.measurement_id = md.measurement_id
+            ORDER BY
+                sf.anomaly_score DESC,
+                md.anomaly_probability DESC
+            LIMIT 50;
+        """,
+    },
 ]
 
 
