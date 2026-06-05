@@ -251,6 +251,55 @@ def get_full_diagnostic_view() -> pd.DataFrame:
 
     return read_sql_query(query)
 
+def get_high_severity_diagnostics() -> pd.DataFrame:
+    """Return diagnostic cases associated with high severity maintenance scenarios."""
+    query = """
+    SELECT
+        vm.measurement_id,
+        vm.timestamp,
+        a.asset_name,
+        a.asset_type,
+        a.location,
+        s.scenario_name,
+        s.scenario_label,
+        s.severity_level,
+        vm.sensor_position,
+        vm.rms_velocity,
+        vm.peak_velocity,
+        vm.crest_factor,
+        vm.temperature_celsius,
+        vm.load_percentage,
+        sf.dominant_frequency_hz,
+        sf.low_frequency_energy,
+        sf.mid_frequency_energy,
+        sf.high_frequency_energy,
+        sf.broadband_energy,
+        sf.harmonic_ratio,
+        sf.subharmonic_ratio,
+        sf.anomaly_score,
+        md.predicted_label,
+        md.anomaly_probability,
+        md.model_name,
+        md.model_version,
+        md.explanation
+    FROM vibration_measurements vm
+    JOIN assets a
+        ON vm.asset_id = a.asset_id
+    JOIN scenarios s
+        ON vm.scenario_id = s.scenario_id
+    LEFT JOIN spectral_features sf
+        ON vm.measurement_id = sf.measurement_id
+    LEFT JOIN ml_diagnostics md
+        ON vm.measurement_id = md.measurement_id
+    WHERE LOWER(s.severity_level) = 'high'
+    ORDER BY
+        md.anomaly_probability DESC,
+        sf.anomaly_score DESC,
+        vm.timestamp;
+    """
+
+    return read_sql_query(query)
+
 
 def get_scenario_by_id(scenario_id: int) -> dict | None:
     """
@@ -277,6 +326,9 @@ def main() -> None:
 
     print("\nFull diagnostic view")
     print(get_full_diagnostic_view())
+
+    print("\nHigh severity diagnostics")
+    print(get_high_severity_diagnostics())
 
 
 if __name__ == "__main__":
