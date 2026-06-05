@@ -25,7 +25,10 @@ from src.monitoring.human_feedback import (
 )  # noqa: E402
 from src.llm.text_to_sql import run_text_to_sql  # noqa: E402
 from src.agents.maintenance_agent import run_maintenance_agent
-from src.llm.semantic_query_router import route_prompt_to_sql
+from src.llm.semantic_query_router import (
+    get_supported_query_examples,
+    route_prompt_to_sql,
+)
 
 st.set_page_config(
     page_title="Hybrid AI for Predictive Maintenance",
@@ -387,19 +390,7 @@ def render_ask_database() -> None:
         """
     )
 
-    example_questions = [
-        "Show average anomaly score by scenario",
-        "Show average anomaly probability by scenario",
-        "Which scenario has the highest risk?",
-        "Which measurements require human validation?",
-        "Show average RMS velocity by scenario",
-        "Show me all scenarios",
-        "Which assets are monitored?",
-        "Show anomaly risk by measurement",
-        "Show lubrication issues",
-        "Show structural looseness cases",
-        "Show human validation history",
-    ]
+    example_questions = get_supported_query_examples()
 
     selected_example = st.selectbox(
         "Choose an example question",
