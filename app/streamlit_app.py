@@ -19,6 +19,10 @@ sys.path.append(str(PROJECT_ROOT))
 from src.database.queries import get_full_diagnostic_view, get_scenarios  # noqa: E402
 from src.analysis.scenario_summary import generate_scenario_summaries, generate_text_summary  # noqa: E402
 from src.prescription.rule_based_recommendations import generate_recommendations  # noqa: E402
+from src.monitoring.human_feedback import (
+    get_human_feedback_with_context,
+    save_human_feedback,
+)  # noqa: E402
 
 st.set_page_config(
     page_title="Hybrid AI for Predictive Maintenance",
@@ -262,6 +266,111 @@ def render_recommendations(df: pd.DataFrame) -> None:
                 st.markdown(f"**Recommended action:** {row['recommended_action']}")
                 st.markdown(f"**Technical reason:** {row['technical_reason']}")
 
+def render_human_validation(df: pd.DataFrame) -> None:
+    """Render human validation form and feedback history."""
+    st.subheader("Human Validation")
+
+    st.markdown(
+        """
+        This section simulates the human-in-the-loop layer.
+        A maintenance specialist can review a diagnostic result, validate the label,
+        add notes, and register the required action.
+        """
+    )
+
+    validation_options = df[
+        [
+            "measurement_id",
+            "diagnostic_id",
+            "asset_name",
+            "scenario_label",
+            "predicted_label",
+            "anomaly_probability",
+        ]
+    ].copy()
+
+    validation_options["option_label"] = (
+        "Measurement "
+        + validation_options["measurement_id"].astype(str)
+        + " | "
+        + validation_options["asset_name"]
+        + " | "
+        + validation_options["scenario_label"]
+        + " | ML: "
+        + validation_options["predicted_label"]
+    )
+
+    selected_option = st.selectbox(
+        "Select a measurement to validate",
+        validation_options["option_label"].tolist(),
+    )
+
+    selected_row = validation_options[
+        validation_options["option_label"] == selected_option
+    ].iloc[0]
+
+    st.markdown("### Selected diagnostic")
+
+    col1, col2, col3 = st.columns(3)
+
+    col1.metric("Measurement ID", int(selected_row["measurement_id"]))
+    col2.metric("Predicted label", selected_row["predicted_label"])
+    col3.metric(
+        "Anomaly probability",
+        f"{selected_row['anomaly_probability']:.2f}",
+    )
+
+    validated_label = st.selectbox(
+        "Validated label",
+        [
+            "normal_operation",
+            "carpet_lubrication_issue",
+            "structural_looseness",
+            "inconclusive",
+        ],
+    )
+
+    user_name = st.text_input(
+        "Specialist name",
+        value="Maintenance Specialist",
+    )
+
+    feedback_notes = st.text_area(
+        "Feedback notes",
+        placeholder="Add technical observations from the maintenance specialist.",
+    )
+
+    action_required = st.text_area(
+        "Action required",
+        placeholder="Describe the recommended or required maintenance action.",
+    )
+
+    if st.button("Save human validation"):
+        save_human_feedback(
+            measurement_id=int(selected_row["measurement_id"]),
+            diagnostic_id=int(selected_row["diagnostic_id"]),
+            user_name=user_name,
+            validated_label=validated_label,
+            feedback_notes=feedback_notes,
+            action_required=action_required,
+        )
+
+        st.success("Human validation saved successfully.")
+
+    st.markdown("---")
+    st.markdown("### Human feedback history")
+
+    feedback_df = get_human_feedback_with_context()
+
+    if feedback_df.empty:
+        st.info("No human feedback records found yet.")
+    else:
+        st.dataframe(
+            feedback_df,
+            use_container_width=True,
+            hide_index=True,
+        )
+
 def main() -> None:
     """Run the Streamlit app."""
     render_header()
@@ -275,11 +384,12 @@ def main() -> None:
         st.warning("No data found for the selected scenario.")
         return
 
-    tab_overview, tab_summary, tab_recommendations, tab_data = st.tabs(
+    tab_overview, tab_summary, tab_recommendations, tab_validation, tab_data = st.tabs(
         [
             "Overview",
             "Scenario Summary",
             "Recommendations",
+            "Human Validation",
             "Diagnostic Data",
         ]
     )
@@ -294,6 +404,9 @@ def main() -> None:
 
     with tab_recommendations:
         render_recommendations(filtered_df)
+
+    with tab_validation:
+        render_human_validation(filtered_df)
 
     with tab_data:
         render_data_table(filtered_df)

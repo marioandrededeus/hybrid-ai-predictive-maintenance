@@ -214,6 +214,7 @@ def get_full_diagnostic_view() -> pd.DataFrame:
         sf.harmonic_ratio,
         sf.subharmonic_ratio,
         sf.anomaly_score,
+        md.diagnostic_id,
         md.predicted_label,
         md.anomaly_probability,
         md.model_name,
