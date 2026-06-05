@@ -7,16 +7,9 @@ Text-to-SQL, agents, or future LLM calls.
 """
 
 
-ALLOWED_DOMAIN_KEYWORDS = [
+CORE_MAINTENANCE_KEYWORDS = [
     "maintenance",
     "predictive maintenance",
-    "vibration",
-    "asset",
-    "machine",
-    "equipment",
-    "sensor",
-    "measurement",
-    "scenario",
     "diagnostic",
     "diagnosis",
     "anomaly",
@@ -28,6 +21,22 @@ ALLOWED_DOMAIN_KEYWORDS = [
     "recommendation",
     "human validation",
     "validation",
+    "ml diagnostic",
+    "prediction",
+]
+
+INDUSTRIAL_CONTEXT_KEYWORDS = [
+    "asset",
+    "assets",
+    "machine",
+    "machines",
+    "equipment",
+    "sensor",
+    "sensors",
+    "measurement",
+    "measurements",
+    "scenario",
+    "scenarios",
     "rms",
     "peak velocity",
     "crest factor",
@@ -46,12 +55,10 @@ ALLOWED_DOMAIN_KEYWORDS = [
     "structural looseness",
     "looseness",
     "normal operation",
-    "ml diagnostic",
-    "model",
-    "prediction",
+    "vibration",
 ]
 
-BLOCKED_GENERAL_KEYWORDS = [
+BLOCKED_OUT_OF_SCOPE_KEYWORDS = [
     "capital",
     "weather",
     "football",
@@ -68,6 +75,13 @@ BLOCKED_GENERAL_KEYWORDS = [
     "stock price",
     "crypto",
     "travel",
+    "vulcan",
+    "volcano",
+    "etna",
+    "earthquake",
+    "seismic",
+    "geology",
+    "mountain",
 ]
 
 
@@ -82,6 +96,9 @@ def normalize_prompt(prompt: str) -> str:
 def is_prompt_in_domain(prompt: str) -> bool:
     """
     Check whether the prompt belongs to the predictive maintenance domain.
+
+    A prompt is allowed only when it is clearly related to the project context.
+    Generic words like "vibration" are not enough by themselves.
     """
 
     normalized_prompt = normalize_prompt(prompt)
@@ -89,20 +106,25 @@ def is_prompt_in_domain(prompt: str) -> bool:
     if not normalized_prompt:
         return False
 
-    has_allowed_keyword = any(
-        keyword in normalized_prompt
-        for keyword in ALLOWED_DOMAIN_KEYWORDS
-    )
-
     has_blocked_keyword = any(
         keyword in normalized_prompt
-        for keyword in BLOCKED_GENERAL_KEYWORDS
+        for keyword in BLOCKED_OUT_OF_SCOPE_KEYWORDS
     )
 
-    if has_blocked_keyword and not has_allowed_keyword:
+    if has_blocked_keyword:
         return False
 
-    return has_allowed_keyword
+    has_core_keyword = any(
+        keyword in normalized_prompt
+        for keyword in CORE_MAINTENANCE_KEYWORDS
+    )
+
+    has_industrial_context = any(
+        keyword in normalized_prompt
+        for keyword in INDUSTRIAL_CONTEXT_KEYWORDS
+    )
+
+    return has_core_keyword and has_industrial_context
 
 
 def get_domain_guard_response(prompt: str) -> dict:
@@ -116,15 +138,15 @@ def get_domain_guard_response(prompt: str) -> dict:
         return {
             "is_allowed": True,
             "reason": "Prompt is related to the predictive maintenance domain.",
-            "message": "Prompt accepted."
+            "message": "Prompt accepted.",
         }
 
     return {
         "is_allowed": False,
         "reason": "Prompt is outside the predictive maintenance domain.",
         "message": (
-            "This assistant only answers questions related to predictive "
-            "maintenance, vibration diagnostics, industrial assets, anomaly "
-            "detection, risk analysis, and maintenance recommendations."
-        )
+            "This assistant only answers questions related to industrial "
+            "predictive maintenance, vibration diagnostics, monitored assets, "
+            "anomaly detection, risk analysis, and maintenance recommendations."
+        ),
     }
