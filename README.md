@@ -1,4 +1,3 @@
-````markdown
 # Hybrid AI for Predictive Maintenance
 
 A practical learning project combining Machine Learning, LLMs, Agentic AI and RAG for industrial vibration analysis.
@@ -313,5 +312,3 @@ Create the SQLite schema and seed the database with the three initial vibration 
 1. Normal operation
 2. Carpet pattern associated with possible lubrication issues
 3. Structural looseness
-
-````
