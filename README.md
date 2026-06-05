@@ -298,17 +298,3 @@ The project includes governance principles from the beginning:
 * RAG sources must be stored with metadata.
 * Corrective recommendations require human validation.
 * The system should not assume direct control over industrial equipment.
-
-## Current Status
-
-Initial development.
-
-The first implementation stage focuses on creating the SQLite database and the pre-populated vibration scenarios.
-
-## Next Step
-
-Create the SQLite schema and seed the database with the three initial vibration scenarios:
-
-1. Normal operation
-2. Carpet pattern associated with possible lubrication issues
-3. Structural looseness
