@@ -23,6 +23,7 @@ from src.monitoring.human_feedback import (
     get_human_feedback_with_context,
     save_human_feedback,
 )  # noqa: E402
+from src.llm.text_to_sql import run_text_to_sql  # noqa: E402
 
 st.set_page_config(
     page_title="Hybrid AI for Predictive Maintenance",
@@ -371,6 +372,65 @@ def render_human_validation(df: pd.DataFrame) -> None:
             hide_index=True,
         )
 
+def render_ask_database() -> None:
+    """Render a safe mock Text-to-SQL interface."""
+    st.subheader("Ask the Database")
+
+    st.markdown(
+        """
+        Ask questions about the predictive maintenance database.
+        In this first version, the app uses a controlled mock Text-to-SQL layer.
+        Only safe SELECT queries are allowed.
+        """
+    )
+
+    example_questions = [
+        "Show me all scenarios",
+        "Which assets are monitored?",
+        "Show anomaly risk by measurement",
+        "Show lubrication issues",
+        "Show structural looseness cases",
+        "Show human validation history",
+    ]
+
+    selected_example = st.selectbox(
+        "Choose an example question",
+        [""] + example_questions,
+    )
+
+    user_question = st.text_input(
+        "Or type your own question",
+        value=selected_example,
+        placeholder="Example: Show lubrication issues",
+    )
+
+    if st.button("Run database question"):
+        if not user_question.strip():
+            st.warning("Please type or select a question.")
+            return
+
+        sql_query, result_df, validation_message = run_text_to_sql(user_question)
+
+        st.markdown("### SQL validation")
+        if validation_message == "SQL query is valid.":
+            st.success(validation_message)
+        else:
+            st.error(validation_message)
+
+        st.markdown("### Generated SQL")
+        st.code(sql_query.strip(), language="sql")
+
+        st.markdown("### Result")
+
+        if result_df.empty:
+            st.info("No rows returned.")
+        else:
+            st.dataframe(
+                result_df,
+                use_container_width=True,
+                hide_index=True,
+            )
+
 def main() -> None:
     """Run the Streamlit app."""
     render_header()
@@ -384,12 +444,13 @@ def main() -> None:
         st.warning("No data found for the selected scenario.")
         return
 
-    tab_overview, tab_summary, tab_recommendations, tab_validation, tab_data = st.tabs(
+    tab_overview, tab_summary, tab_recommendations, tab_validation, tab_ask_db, tab_data = st.tabs(
         [
             "Overview",
             "Scenario Summary",
             "Recommendations",
             "Human Validation",
+            "Ask the Database",
             "Diagnostic Data",
         ]
     )
@@ -407,6 +468,9 @@ def main() -> None:
 
     with tab_validation:
         render_human_validation(filtered_df)
+
+    with tab_ask_db:
+        render_ask_database()
 
     with tab_data:
         render_data_table(filtered_df)
