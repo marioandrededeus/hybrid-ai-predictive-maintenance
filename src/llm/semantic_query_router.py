@@ -141,6 +141,100 @@ QUERY_TEMPLATES = [
             LIMIT 20;
         """,
     },
+    {
+        "intent": "lubrication_issues",
+        "keywords": [
+            "lubrication issues",
+            "lubrication problem",
+            "lubrication degradation",
+            "carpet pattern",
+            "carpet",
+            "high frequency energy",
+            "broadband energy",
+        ],
+        "sql": """
+            SELECT
+                vm.measurement_id,
+                vm.timestamp,
+                a.asset_name,
+                a.asset_type,
+                a.location,
+                s.scenario_label,
+                s.severity_level,
+                ROUND(vm.rms_velocity, 3) AS rms_velocity,
+                ROUND(vm.peak_velocity, 3) AS peak_velocity,
+                ROUND(sf.broadband_energy, 3) AS broadband_energy,
+                ROUND(sf.high_frequency_energy, 3) AS high_frequency_energy,
+                ROUND(sf.anomaly_score, 3) AS anomaly_score,
+                ROUND(md.anomaly_probability, 3) AS anomaly_probability,
+                md.predicted_label,
+                md.explanation
+            FROM vibration_measurements vm
+            JOIN assets a
+                ON vm.asset_id = a.asset_id
+            JOIN scenarios s
+                ON vm.scenario_id = s.scenario_id
+            LEFT JOIN spectral_features sf
+                ON vm.measurement_id = sf.measurement_id
+            LEFT JOIN ml_diagnostics md
+                ON vm.measurement_id = md.measurement_id
+            WHERE
+                s.scenario_name = 'carpet_lubrication_issue'
+                OR s.scenario_label LIKE '%lubrication%'
+                OR s.scenario_label LIKE '%Carpet%'
+            ORDER BY
+                sf.anomaly_score DESC,
+                sf.high_frequency_energy DESC
+            LIMIT 50;
+        """,
+    },
+    {
+        "intent": "structural_looseness_cases",
+        "keywords": [
+            "structural looseness",
+            "looseness cases",
+            "looseness",
+            "low frequency energy",
+            "harmonic ratio",
+            "subharmonic ratio",
+        ],
+        "sql": """
+            SELECT
+                vm.measurement_id,
+                vm.timestamp,
+                a.asset_name,
+                a.asset_type,
+                a.location,
+                s.scenario_label,
+                s.severity_level,
+                ROUND(vm.rms_velocity, 3) AS rms_velocity,
+                ROUND(vm.peak_velocity, 3) AS peak_velocity,
+                ROUND(sf.low_frequency_energy, 3) AS low_frequency_energy,
+                ROUND(sf.harmonic_ratio, 3) AS harmonic_ratio,
+                ROUND(sf.subharmonic_ratio, 3) AS subharmonic_ratio,
+                ROUND(sf.anomaly_score, 3) AS anomaly_score,
+                ROUND(md.anomaly_probability, 3) AS anomaly_probability,
+                md.predicted_label,
+                md.explanation
+            FROM vibration_measurements vm
+            JOIN assets a
+                ON vm.asset_id = a.asset_id
+            JOIN scenarios s
+                ON vm.scenario_id = s.scenario_id
+            LEFT JOIN spectral_features sf
+                ON vm.measurement_id = sf.measurement_id
+            LEFT JOIN ml_diagnostics md
+                ON vm.measurement_id = md.measurement_id
+            WHERE
+                s.scenario_name = 'structural_looseness'
+                OR s.scenario_label LIKE '%looseness%'
+            ORDER BY
+                sf.anomaly_score DESC,
+                sf.low_frequency_energy DESC,
+                sf.harmonic_ratio DESC
+            LIMIT 50;
+        """,
+    },
 ]
 
 
