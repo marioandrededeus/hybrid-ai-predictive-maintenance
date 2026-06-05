@@ -59,7 +59,9 @@ def test_supported_query_examples_are_available():
 
     assert isinstance(examples, list)
     assert len(examples) > 0
-    assert "average anomaly score" in examples
+    assert "anomaly score by scenario" in examples
+    assert "average rms velocity by predictive maintenance scenario" in examples
+    assert "highest risk assets" in examples
 
 def test_matches_high_severity_diagnostics_short_prompt():
     from src.llm.semantic_query_router import route_prompt_to_sql
