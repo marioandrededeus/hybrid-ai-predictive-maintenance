@@ -27,6 +27,7 @@ from src.monitoring.human_feedback import (
 from src.llm.text_to_sql import run_text_to_sql  # noqa: E402
 from src.agents.maintenance_agent import run_maintenance_agent
 from src.llm.semantic_query_router import (
+    get_supported_demo_questions,
     get_supported_query_examples,
     route_prompt_to_sql,
 )
@@ -591,23 +592,26 @@ def render_ask_database() -> None:
     )
 
     with st.expander("Supported multilingual questions", expanded=False):
+        supported_questions = get_supported_demo_questions()
+
         st.markdown(
             """
-            The semantic router currently supports predefined questions in English,
-            Portuguese, and Spanish.
-
-            **Examples**
-
-            | Intent | English | Portuguese | Spanish |
-            |---|---|---|---|
-            | Average anomaly score | average anomaly score by scenario | media do score de anomalia por cenario | promedio del score de anomalia por escenario |
-            | Highest risk assets | which assets have the highest anomaly risk | quais ativos tem maior risco de anomalia | que activos tienen mayor riesgo de anomalia |
-            | High severity diagnostics | show high severity diagnostics | mostrar diagnosticos de alta severidade | mostrar diagnosticos de alta severidad |
-            | Lubrication issues | lubrication issues | problemas de lubrificacao | problemas de lubricacion |
-            | Structural looseness | structural looseness cases | casos de folga estrutural | casos de holgura estructural |
-            | Human validation | measurements requiring human validation | medicoes que requerem validacao humana | mediciones que requieren validacion humana |
+            The semantic router supports curated questions in English,
+            Portuguese, and Spanish. These examples are deterministic and mapped
+            to safe predefined SQL templates.
             """
         )
+
+        for question_group in supported_questions:
+            st.markdown(f"**{question_group['category']}**")
+
+            st.markdown(
+                f"""
+                - EN: `{question_group["english"]}`
+                - PT-BR: `{question_group["portuguese"]}`
+                - ES: `{question_group["spanish"]}`
+                """
+            )
 
     example_questions = get_supported_query_examples()
 

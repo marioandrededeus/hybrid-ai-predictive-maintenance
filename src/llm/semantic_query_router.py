@@ -567,6 +567,69 @@ QUERY_TEMPLATES = [
     },
 ]
 
+SUPPORTED_DEMO_QUESTIONS = [
+    {
+        "category": "Risk ranking",
+        "english": "which assets have the highest anomaly risk",
+        "portuguese": "quais ativos tem maior risco de anomalia",
+        "spanish": "que activos tienen mayor riesgo de anomalia",
+    },
+    {
+        "category": "Risk ranking",
+        "english": "which scenario has the highest risk",
+        "portuguese": "qual cenario tem maior risco",
+        "spanish": "que escenario tiene mayor riesgo",
+    },
+    {
+        "category": "Diagnostics",
+        "english": "show high severity diagnostics",
+        "portuguese": "mostrar diagnosticos de alta severidade",
+        "spanish": "mostrar diagnosticos de alta severidad",
+    },
+    {
+        "category": "Anomaly metrics",
+        "english": "anomaly score by scenario",
+        "portuguese": "score de anomalia por cenario",
+        "spanish": "score de anomalia por escenario",
+    },
+    {
+        "category": "Anomaly metrics",
+        "english": "anomaly probability by scenario",
+        "portuguese": "probabilidade de anomalia por cenario",
+        "spanish": "probabilidad de anomalia por escenario",
+    },
+    {
+        "category": "Vibration metrics",
+        "english": "average rms velocity by predictive maintenance scenario",
+        "portuguese": "velocidade rms por cenario de manutencao preditiva",
+        "spanish": "velocidad rms por escenario de mantenimiento predictivo",
+    },
+    {
+        "category": "Failure patterns",
+        "english": "lubrication issues",
+        "portuguese": "problemas de lubrificacao em vibracao",
+        "spanish": "problemas de lubricacion en vibracion",
+    },
+    {
+        "category": "Failure patterns",
+        "english": "structural looseness cases",
+        "portuguese": "casos de folga estrutural em vibracao",
+        "spanish": "casos de holgura estructural en vibracion",
+    },
+    {
+        "category": "Human validation",
+        "english": "measurements requiring human validation",
+        "portuguese": "medicoes que requerem validacao humana",
+        "spanish": "mediciones que requieren validacion humana",
+    },
+    {
+        "category": "Assets",
+        "english": "which assets are monitored for predictive maintenance",
+        "portuguese": "quais ativos sao monitorados para manutencao preditiva",
+        "spanish": "que activos son monitoreados para mantenimiento predictivo",
+    },
+]
+
 
 def normalize_prompt(prompt: str) -> str:
     """
@@ -613,14 +676,20 @@ def route_prompt_to_sql(prompt: str) -> dict:
     }
 
 def get_supported_query_examples() -> list[str]:
-    """
-    Return representative example questions supported by the semantic router.
-    """
-
+    """Return curated example questions for the Streamlit interface."""
     examples = []
 
-    for template in QUERY_TEMPLATES:
-        if template["keywords"]:
-            examples.append(template["keywords"][0])
+    for question_group in SUPPORTED_DEMO_QUESTIONS:
+        examples.extend(
+            [
+                question_group["english"],
+                question_group["portuguese"],
+                question_group["spanish"],
+            ]
+        )
 
     return examples
+
+def get_supported_demo_questions() -> list[dict]:
+    """Return curated multilingual questions grouped for UI display."""
+    return SUPPORTED_DEMO_QUESTIONS

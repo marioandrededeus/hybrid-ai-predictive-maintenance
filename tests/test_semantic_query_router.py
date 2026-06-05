@@ -1,8 +1,21 @@
 from src.llm.semantic_query_router import (
+    get_supported_demo_questions,
     get_supported_query_examples,
     route_prompt_to_sql,
 )
 
+def test_supported_demo_questions_are_available():
+    demo_questions = get_supported_demo_questions()
+
+    assert isinstance(demo_questions, list)
+    assert len(demo_questions) > 0
+
+    first_question = demo_questions[0]
+
+    assert "category" in first_question
+    assert "english" in first_question
+    assert "portuguese" in first_question
+    assert "spanish" in first_question
 
 def test_blocks_out_of_scope_prompt():
     response = route_prompt_to_sql("What is the capital of France?")
@@ -61,7 +74,7 @@ def test_supported_query_examples_are_available():
     assert len(examples) > 0
     assert "anomaly score by scenario" in examples
     assert "average rms velocity by predictive maintenance scenario" in examples
-    assert "highest risk assets" in examples
+    assert "which assets have the highest anomaly risk" in examples
 
 def test_matches_high_severity_diagnostics_short_prompt():
     from src.llm.semantic_query_router import route_prompt_to_sql
