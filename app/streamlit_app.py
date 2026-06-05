@@ -412,6 +412,19 @@ def render_ask_database() -> None:
 
         if router_response["status"] == "blocked":
             st.error(router_response["message"])
+
+            st.markdown("### Execution path")
+            st.json(
+                {
+                    "domain_guard": "blocked",
+                    "semantic_router": "not executed",
+                    "matched_intent": None,
+                    "text_to_sql_fallback": "not used",
+                    "llm_usage": "not used",
+                    "sql_guard": "not executed",
+                }
+            )
+
             return
         
         if router_response["status"] == "matched":
@@ -420,6 +433,18 @@ def render_ask_database() -> None:
             st.markdown("### Semantic router")
             st.success("Prompt matched a predefined SQL template.")
             st.info(f"Matched intent: {router_response['intent']}")
+
+            st.markdown("### Execution path")
+            st.json(
+                {
+                    "domain_guard": "passed",
+                    "semantic_router": "matched",
+                    "matched_intent": router_response["intent"],
+                    "text_to_sql_fallback": "not used",
+                    "llm_usage": "not used",
+                    "sql_guard": "pending",
+                }
+            )
 
             from src.database.queries import read_sql_query
             from src.llm.sql_guard import validate_sql_query
@@ -431,7 +456,7 @@ def render_ask_database() -> None:
                 validation_message = validation_result.get("message", "")
             else:
                 validation_message = str(validation_result)
-                is_valid = "valid" in validation_message.lower()
+                is_valid = validation_message.strip() == "SQL query is valid."
 
             if not is_valid:
                 result_df = pd.DataFrame()
@@ -439,12 +464,29 @@ def render_ask_database() -> None:
                 result_df = read_sql_query(sql_query)
                 validation_message = "SQL query is valid."
 
+            if is_valid:
+                st.success("SQL Guard: passed")
+            else:
+                st.error("SQL Guard: blocked")
+
             st.caption(f"Rows returned: {len(result_df)}")
 
         else:
             st.markdown("### Semantic router")
             st.warning(router_response["message"])
             st.info("Fallback: using controlled mock Text-to-SQL.")
+
+            st.markdown("### Execution path")
+            st.json(
+                {
+                    "domain_guard": "passed",
+                    "semantic_router": "not matched",
+                    "matched_intent": None,
+                    "text_to_sql_fallback": "used",
+                    "llm_usage": "not used",
+                    "sql_guard": "handled by mock text-to-sql flow",
+                }
+            )
 
             sql_query, result_df, validation_message = run_text_to_sql(user_question)
 
@@ -559,7 +601,13 @@ def main() -> None:
                 st.warning("No summary found for this scenario.")
 
             st.subheader("Recommendations")
-            st.dataframe(agent_response["recommendations"], use_container_width=True)
+            recommendations_df = pd.DataFrame(agent_response["recommendations"])
+
+            st.dataframe(
+                recommendations_df,
+                use_container_width=True,
+                hide_index=True,
+            )
 
             st.subheader("Agent Reasoning")
             for step in agent_response["agent_reasoning"]:

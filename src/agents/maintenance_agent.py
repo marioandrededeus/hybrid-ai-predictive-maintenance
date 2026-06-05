@@ -54,7 +54,8 @@ def run_maintenance_agent(scenario_id: int) -> dict:
     else:
         summary = filtered_summary_df.iloc[0].to_dict()
 
-    recommendations = generate_recommendations(measurements_df)
+    recommendations_df = generate_recommendations(measurements_df)
+    recommendations = recommendations_df.to_dict(orient="records")
 
     agent_reasoning = [
         "The agent retrieved the selected industrial scenario from the database.",
