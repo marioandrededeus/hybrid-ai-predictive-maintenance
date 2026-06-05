@@ -343,3 +343,16 @@ def route_prompt_to_sql(prompt: str) -> dict:
             "but no predefined SQL template was found yet."
         ),
     }
+
+def get_supported_query_examples() -> list[str]:
+    """
+    Return representative example questions supported by the semantic router.
+    """
+
+    examples = []
+
+    for template in QUERY_TEMPLATES:
+        if template["keywords"]:
+            examples.append(template["keywords"][0])
+
+    return examples
