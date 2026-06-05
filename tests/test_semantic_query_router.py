@@ -60,3 +60,27 @@ def test_supported_query_examples_are_available():
     assert isinstance(examples, list)
     assert len(examples) > 0
     assert "average anomaly score" in examples
+
+def test_matches_high_severity_diagnostics_short_prompt():
+    from src.llm.semantic_query_router import route_prompt_to_sql
+
+    result = route_prompt_to_sql("show high severity diagnostics")
+
+    assert result["status"] == "matched"
+    assert result["intent"] == "high_severity_diagnostics"
+    assert result["sql"] is not None
+    assert "severity_level" in result["sql"]
+    assert "LOWER(s.severity_level) = 'high'" in result["sql"]
+
+
+def test_matches_high_severity_diagnostics_explicit_prompt():
+    from src.llm.semantic_query_router import route_prompt_to_sql
+
+    result = route_prompt_to_sql(
+        "show high severity predictive maintenance diagnostics for vibration measurements"
+    )
+
+    assert result["status"] == "matched"
+    assert result["intent"] == "high_severity_diagnostics"
+    assert result["sql"] is not None
+    assert "vibration_measurements" in result["sql"]

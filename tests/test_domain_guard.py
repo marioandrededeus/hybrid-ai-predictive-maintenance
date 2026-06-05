@@ -38,3 +38,11 @@ def test_allows_human_validation_question():
     )
 
     assert response["is_allowed"] is True
+
+def test_allows_high_severity_diagnostics_prompt():
+    from src.llm.domain_guard import get_domain_guard_response
+
+    response = get_domain_guard_response("show high severity diagnostics")
+
+    assert response["is_allowed"] is True
+    assert response["message"] == "Prompt accepted."
