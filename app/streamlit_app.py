@@ -584,21 +584,25 @@ def render_ask_database() -> None:
 
     st.markdown(
         """
-        Ask questions about the predictive maintenance database.
-        The app first tries to match the question with a safe predefined SQL template.
-        If no template is found, it falls back to the controlled mock Text-to-SQL layer.
-        Only safe SELECT queries are allowed.
+        Ask operational questions about predictive maintenance data.
+
+        This assistant converts approved business questions into safe SQL templates,
+        helping explore anomaly risk, monitored assets, diagnostic scenarios,
+        vibration patterns, and cases that require human validation.
         """
     )
 
-    with st.expander("Supported multilingual questions", expanded=False):
+    st.info(
+        "For this demo, the query flow is deterministic: Domain Guard → Semantic Router → SQL Guard → Database."
+    )
+
+    with st.expander("Example questions", expanded=False):
         supported_questions = get_supported_demo_questions()
 
         st.markdown(
             """
-            The semantic router supports curated questions in English,
-            Portuguese, and Spanish. These examples are deterministic and mapped
-            to safe predefined SQL templates.
+            Select one of the curated questions below or type a similar question.
+            The examples are available in English, Portuguese, and Spanish.
             """
         )
 
@@ -616,17 +620,17 @@ def render_ask_database() -> None:
     example_questions = get_supported_query_examples()
 
     selected_example = st.selectbox(
-        "Choose an example question",
-        [""] + example_questions,
-    )
+    "Choose a guided question",
+    [""] + example_questions,
+)
 
     user_question = st.text_input(
-        "Or type your own question",
+        "Or type a question",
         value=selected_example,
-        placeholder="Example: Show average anomaly score by scenario",
+        placeholder="Example: which assets have the highest anomaly risk",
     )
 
-    if st.button("Run database question"):
+    if st.button("Run query"):
         if not user_question.strip():
             st.warning("Please type or select a question.")
             return
@@ -634,23 +638,24 @@ def render_ask_database() -> None:
         router_response = route_prompt_to_sql(user_question)
 
         if router_response["status"] == "blocked":
-            st.error(router_response["message"])
+            st.error("This question is outside the supported predictive maintenance scope.")
+            st.caption(router_response["message"])
 
-            st.markdown("### Query execution summary")
+            st.markdown("### Execution summary")
 
             summary_col1, summary_col2, summary_col3 = st.columns(3)
 
             with summary_col1:
-                st.markdown("#### Semantic router")
+                st.markdown("#### Question routing")
                 st.error("Blocked")
-                st.caption("Prompt outside supported domain.")
+                st.caption("Question outside supported maintenance domain.")
 
             with summary_col2:
                 st.markdown("#### SQL validation")
                 st.warning("SQL validation was not executed.")
 
             with summary_col3:
-                st.markdown("#### Execution path")
+                st.markdown("#### Flow")
                 st.json(
                     {
                         "domain_guard": "blocked",
@@ -692,21 +697,21 @@ def render_ask_database() -> None:
             st.markdown("#### Semantic router")
 
             if router_response["status"] == "matched":
-                st.success("Matched")
+                st.success("Template matched")
                 st.caption(f"Intent: {router_response['intent']}")
             else:
-                st.warning("Not matched")
-                st.caption("Fallback used")
+                st.warning("No template matched")
+                st.caption("Controlled fallback used")
 
         with summary_col2:
-            st.markdown("#### SQL validation")
+            st.markdown("#### SQL safety")
 
             if is_valid:
                 st.success(validation_message)
             else:
                 st.error(validation_message)
 
-            st.caption(f"Rows returned: {len(result_df)}")
+            st.caption(f"Records returned: {len(result_df)}")
 
         with summary_col3:
             st.markdown("#### Execution path")
@@ -734,13 +739,13 @@ def render_ask_database() -> None:
 
 
 
-        st.markdown("### Result")
+        st.markdown("### Results")
 
         render_query_result_cards(result_df)
 
-        st.markdown("### Generated SQL")
+        st.markdown("### SQL template")
 
-        with st.expander("Show generated SQL", expanded=False):
+        with st.expander("Show SQL template", expanded=False):
             st.code(sql_query.strip(), language="sql")
 
 def main() -> None:
