@@ -23,6 +23,14 @@ CORE_MAINTENANCE_KEYWORDS = [
     "validation",
     "ml diagnostic",
     "prediction",
+    "issue",
+    "issues",
+    "case",
+    "cases",
+    "lubrication",
+    "carpet",
+    "structural looseness",
+    "looseness",
 ]
 
 INDUSTRIAL_CONTEXT_KEYWORDS = [
