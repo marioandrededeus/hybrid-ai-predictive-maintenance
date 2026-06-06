@@ -11,6 +11,7 @@ matplotlib
 # Machine Learning
 scikit-learn
 joblib
+sentence-transformers
 
 # Database
 sqlalchemy
