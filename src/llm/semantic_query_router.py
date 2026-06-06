@@ -87,7 +87,7 @@ QUERY_TEMPLATES = [
             "que escenario tiene mayor riesgo",
             "mostrar escenarios de mayor riesgo",
         ],
-        "sql": """
+                        "sql": """
             SELECT
                 s.scenario_label,
                 s.severity_level,
@@ -122,7 +122,7 @@ QUERY_TEMPLATES = [
             "mediciones de vibración que requieren validación humana",
             "mediciones de vibracion que requieren validacion humana",
         ],
-        "sql": """
+                        "sql": """
             SELECT
                 vm.measurement_id,
                 vm.timestamp,
@@ -152,7 +152,7 @@ QUERY_TEMPLATES = [
     },
     {
         "intent": "average_rms_velocity_by_scenario",
-                                "keywords": [
+                        "keywords": [
             "average rms velocity by predictive maintenance scenario",
             "rms velocity by predictive maintenance scenario",
             "average vibration rms velocity by maintenance scenario",
@@ -168,7 +168,25 @@ QUERY_TEMPLATES = [
             "velocidad rms de vibracion por escenario de mantenimiento",
             "promedio de velocidad rms por escenario de mantenimiento",
         ],
-        "sql": """
+                        "semantic_examples": [
+            "average rms velocity by predictive maintenance scenario",
+            "compare vibration intensity across scenarios",
+            "which scenario has the highest average vibration level",
+            "show mean rms velocity for each diagnostic scenario",
+            "compare rms vibration between failure patterns",
+            "show vibration severity grouped by scenario",
+            "comparar intensidade de vibração entre cenários",
+            "qual cenário tem maior nível médio de vibração",
+            "mostrar velocidade rms média por cenário diagnóstico",
+            "comparar vibração rms entre padrões de falha",
+            "mostrar severidade de vibração agrupada por cenário",
+            "comparar intensidad de vibración entre escenarios",
+            "qué escenario tiene mayor nivel promedio de vibración",
+            "mostrar velocidad rms promedio por escenario diagnóstico",
+            "comparar vibración rms entre patrones de falla",
+            "mostrar severidad de vibración agrupada por escenario",
+        ],
+                        "sql": """
             SELECT
                 s.scenario_label,
                 ROUND(AVG(vm.rms_velocity), 3) AS avg_rms_velocity
@@ -349,7 +367,25 @@ QUERY_TEMPLATES = [
             "mostrar diagnosticos de alta severidad",
             "mostrar diagnosticos criticos",
         ],
-        "sql": """
+                "semantic_examples": [
+            "show high severity diagnostics",
+            "show the most critical diagnostic cases",
+            "which diagnostics require urgent attention",
+            "list severe predictive maintenance cases",
+            "show measurements classified as high severity",
+            "which cases should be prioritized by maintenance",
+            "mostrar diagnósticos de alta severidade",
+            "mostrar os casos diagnósticos mais críticos",
+            "quais diagnósticos exigem atenção urgente",
+            "listar casos severos de manutenção preditiva",
+            "mostrar medições classificadas como alta severidade",
+            "mostrar diagnósticos de alta severidad",
+            "mostrar los casos diagnósticos más críticos",
+            "qué diagnósticos requieren atención urgente",
+            "listar casos severos de mantenimiento predictivo",
+            "mostrar mediciones clasificadas como alta severidad",
+        ],
+                "sql": """
             SELECT
                 vm.measurement_id,
                 vm.timestamp,
@@ -529,6 +565,23 @@ QUERY_TEMPLATES = [
             "equipos más críticos",
             "equipos mas criticos",
         ],
+                "semantic_examples": [
+            "which assets have the highest anomaly risk",
+            "which machines look most critical",
+            "show equipment with abnormal behavior",
+            "rank assets by operational risk",
+            "which monitored assets require attention first",
+            "show the riskiest equipment in the plant",
+            "quais ativos parecem mais críticos",
+            "quais máquinas estão com maior risco",
+            "mostrar equipamentos com comportamento anormal",
+            "ranquear ativos por risco operacional",
+            "quais ativos precisam de atenção primeiro",
+            "que equipos parecen más críticos",
+            "que máquinas tienen mayor riesgo",
+            "mostrar equipos con comportamiento anormal",
+            "ordenar activos por riesgo operativo",
+        ],
         "sql": """
             SELECT
                 a.asset_id,
@@ -642,6 +695,11 @@ def normalize_prompt(prompt: str) -> str:
 def route_prompt_to_sql(prompt: str) -> dict:
     """
     Route a user prompt to a predefined SQL template when possible.
+
+    Routing order:
+    1. Domain Guard
+    2. Keyword-based semantic router
+    3. Embedding-based semantic router fallback
     """
 
     domain_validation = get_domain_guard_response(prompt)
@@ -652,6 +710,9 @@ def route_prompt_to_sql(prompt: str) -> dict:
             "intent": None,
             "sql": None,
             "message": domain_validation["message"],
+            "routing_method": "domain_guard",
+            "similarity_score": None,
+            "matched_example": None,
         }
 
     normalized_prompt = normalize_prompt(prompt)
@@ -663,7 +724,25 @@ def route_prompt_to_sql(prompt: str) -> dict:
                 "intent": template["intent"],
                 "sql": template["sql"],
                 "message": "Prompt matched a predefined SQL template.",
+                "routing_method": "keyword_match",
+                "similarity_score": None,
+                "matched_example": None,
             }
+
+    from src.llm import embedding_router
+
+    embedding_response = embedding_router.route_prompt_by_embedding(prompt)
+
+    if embedding_response["status"] == "matched":
+        return {
+            "status": "matched",
+            "intent": embedding_response["intent"],
+            "sql": embedding_response["sql"],
+            "message": "Prompt matched an approved SQL template using embedding similarity.",
+            "routing_method": "embedding_similarity",
+            "similarity_score": embedding_response["similarity_score"],
+            "matched_example": embedding_response["matched_example"],
+        }
 
     return {
         "status": "not_matched",
@@ -671,8 +750,11 @@ def route_prompt_to_sql(prompt: str) -> dict:
         "sql": None,
         "message": (
             "Prompt is inside the predictive maintenance domain, "
-            "but no predefined SQL template was found yet."
+            "but no approved SQL template was found."
         ),
+        "routing_method": "not_matched",
+        "similarity_score": embedding_response.get("similarity_score"),
+        "matched_example": embedding_response.get("matched_example"),
     }
 
 def get_supported_query_examples() -> list[str]:

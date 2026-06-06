@@ -57,7 +57,25 @@ def test_matches_structural_looseness_cases():
     assert "structural_looseness" in response["sql"]
 
 
-def test_valid_domain_prompt_without_template_returns_not_matched():
+def test_valid_domain_prompt_without_template_returns_not_matched(monkeypatch):
+    from src.llm import embedding_router
+
+    def fake_route_prompt_by_embedding(prompt: str) -> dict:
+        return {
+            "status": "not_matched",
+            "intent": None,
+            "sql": None,
+            "similarity_score": 0.31,
+            "matched_example": None,
+            "routing_method": "embedding_similarity",
+        }
+
+    monkeypatch.setattr(
+        embedding_router,
+        "route_prompt_by_embedding",
+        fake_route_prompt_by_embedding,
+    )
+
     response = route_prompt_to_sql(
         "Explain maintenance anomaly behavior for vibration sensors"
     )
@@ -99,3 +117,33 @@ def test_matches_high_severity_diagnostics_explicit_prompt():
     assert result["intent"] == "high_severity_diagnostics"
     assert result["sql"] is not None
     assert "vibration_measurements" in result["sql"]
+
+def test_route_prompt_uses_embedding_similarity_when_keyword_does_not_match(monkeypatch):
+    from src.llm import embedding_router
+
+    def fake_route_prompt_by_embedding(prompt: str) -> dict:
+        return {
+            "status": "matched",
+            "intent": "highest_risk_assets",
+            "sql": "SELECT 1;",
+            "similarity_score": 0.82,
+            "matched_example": "which assets have the highest anomaly risk",
+            "routing_method": "embedding_similarity",
+        }
+
+    monkeypatch.setattr(
+        embedding_router,
+        "route_prompt_by_embedding",
+        fake_route_prompt_by_embedding,
+    )
+
+    response = route_prompt_to_sql(
+        "which predictive maintenance machines look most critical?"
+    )
+
+    assert response["status"] == "matched"
+    assert response["intent"] == "highest_risk_assets"
+    assert response["sql"] == "SELECT 1;"
+    assert response["routing_method"] == "embedding_similarity"
+    assert response["similarity_score"] == 0.82
+    assert response["matched_example"] == "which assets have the highest anomaly risk"
