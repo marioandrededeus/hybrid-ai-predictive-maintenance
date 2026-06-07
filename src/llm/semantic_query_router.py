@@ -11,8 +11,9 @@ from src.llm.domain_guard import get_domain_guard_response
 
 QUERY_TEMPLATES = [
     {
-        "intent": "average_anomaly_score_by_scenario",
-        "keywords": [
+    "intent": "average_anomaly_score_by_scenario",
+    "approved_question": "Show average anomaly score by predictive maintenance scenario.",
+    "keywords": [
             "anomaly score by scenario",
             "show average anomaly score by scenario",
             "score de anomalia por cenário",
@@ -40,7 +41,8 @@ QUERY_TEMPLATES = [
     },
     {
         "intent": "average_anomaly_probability_by_scenario",
-                "keywords": [
+        "approved_question": "Show average anomaly probability by predictive maintenance scenario.",
+        "keywords": [
             "anomaly probability by scenario",
             "show average anomaly probability by scenario",
             "probabilidade de anomalia por cenário",
@@ -68,7 +70,8 @@ QUERY_TEMPLATES = [
     },
     {
         "intent": "highest_risk_scenarios",
-                        "keywords": [
+        "approved_question": "Which predictive maintenance scenarios have the highest risk?",
+        "keywords": [
             "riskiest scenario",
             "which scenario has the highest risk",
             "highest risk scenarios",
@@ -87,7 +90,7 @@ QUERY_TEMPLATES = [
             "que escenario tiene mayor riesgo",
             "mostrar escenarios de mayor riesgo",
         ],
-                        "sql": """
+        "sql": """
             SELECT
                 s.scenario_label,
                 s.severity_level,
@@ -109,7 +112,8 @@ QUERY_TEMPLATES = [
     },
     {
         "intent": "measurements_requiring_human_validation",
-                        "keywords": [
+        "approved_question": "Which vibration measurements require human validation?",
+        "keywords": [
             "measurements requiring human validation",
             "show measurements requiring human validation",
             "vibration measurements requiring human validation",
@@ -122,7 +126,7 @@ QUERY_TEMPLATES = [
             "mediciones de vibración que requieren validación humana",
             "mediciones de vibracion que requieren validacion humana",
         ],
-                        "sql": """
+        "sql": """
             SELECT
                 vm.measurement_id,
                 vm.timestamp,
@@ -152,7 +156,8 @@ QUERY_TEMPLATES = [
     },
     {
         "intent": "average_rms_velocity_by_scenario",
-                        "keywords": [
+        "approved_question": "Show average RMS velocity by predictive maintenance scenario.",
+        "keywords": [
             "average rms velocity by predictive maintenance scenario",
             "rms velocity by predictive maintenance scenario",
             "average vibration rms velocity by maintenance scenario",
@@ -168,7 +173,7 @@ QUERY_TEMPLATES = [
             "velocidad rms de vibracion por escenario de mantenimiento",
             "promedio de velocidad rms por escenario de mantenimiento",
         ],
-                        "semantic_examples": [
+        "semantic_examples": [
             "average rms velocity by predictive maintenance scenario",
             "compare vibration intensity across scenarios",
             "which scenario has the highest average vibration level",
@@ -186,7 +191,7 @@ QUERY_TEMPLATES = [
             "comparar vibración rms entre patrones de falla",
             "mostrar severidad de vibración agrupada por escenario",
         ],
-                        "sql": """
+        "sql": """
             SELECT
                 s.scenario_label,
                 ROUND(AVG(vm.rms_velocity), 3) AS avg_rms_velocity
@@ -200,7 +205,8 @@ QUERY_TEMPLATES = [
     },
     {
         "intent": "lubrication_issues",
-                        "keywords": [
+        "approved_question": "Show vibration cases related to lubrication issues.",
+        "keywords": [
             "lubrication issues",
             "lubrication problem",
             "lubrication degradation",
@@ -275,7 +281,8 @@ QUERY_TEMPLATES = [
     },
     {
         "intent": "structural_looseness_cases",
-                        "keywords": [
+        "approved_question": "Show vibration cases related to structural looseness.",
+        "keywords": [
             "structural looseness",
             "looseness cases",
             "structural looseness cases",
@@ -336,9 +343,10 @@ QUERY_TEMPLATES = [
             LIMIT 50;
         """,
     },
-        {
+    {
         "intent": "high_severity_diagnostics",
-                        "keywords": [
+        "approved_question": "Show high severity predictive maintenance diagnostics.",
+        "keywords": [
             "high severity diagnostics",
             "high severity cases",
             "high severity measurements",
@@ -367,7 +375,7 @@ QUERY_TEMPLATES = [
             "mostrar diagnosticos de alta severidad",
             "mostrar diagnosticos criticos",
         ],
-                "semantic_examples": [
+        "semantic_examples": [
             "show high severity diagnostics",
             "show the most critical diagnostic cases",
             "which diagnostics require urgent attention",
@@ -385,7 +393,7 @@ QUERY_TEMPLATES = [
             "listar casos severos de mantenimiento predictivo",
             "mostrar mediciones clasificadas como alta severidad",
         ],
-                "sql": """
+        "sql": """
             SELECT
                 vm.measurement_id,
                 vm.timestamp,
@@ -433,7 +441,8 @@ QUERY_TEMPLATES = [
     },
     {
         "intent": "monitored_assets",
-                "keywords": [
+        "approved_question": "Which assets are monitored for predictive maintenance?",
+        "keywords": [
             "which assets are monitored for predictive maintenance",
             "monitored assets in predictive maintenance",
             "show monitored maintenance assets",
@@ -473,7 +482,8 @@ QUERY_TEMPLATES = [
     },
     {
         "intent": "anomaly_risk_by_measurement",
-                        "keywords": [
+        "approved_question": "Show anomaly risk by vibration measurement.",
+        "keywords": [
             "anomaly risk by measurement",
             "risk by measurement",
             "anomaly by measurement",
@@ -531,7 +541,8 @@ QUERY_TEMPLATES = [
     },
     {
         "intent": "highest_risk_assets",
-                "keywords": [
+        "approved_question": "Which monitored assets have the highest anomaly risk?",
+        "keywords": [
             "highest risk assets",
             "assets with highest anomaly risk",
             "which assets have the highest anomaly risk",
@@ -565,7 +576,7 @@ QUERY_TEMPLATES = [
             "equipos más críticos",
             "equipos mas criticos",
         ],
-                "semantic_examples": [
+        "semantic_examples": [
             "which assets have the highest anomaly risk",
             "which machines look most critical",
             "show equipment with abnormal behavior",
