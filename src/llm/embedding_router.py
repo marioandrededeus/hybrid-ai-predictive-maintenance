@@ -9,7 +9,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from src.llm.semantic_query_router import QUERY_TEMPLATES
 
 
-EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 DEFAULT_SIMILARITY_THRESHOLD = 0.62
 
 
@@ -50,7 +50,11 @@ def get_embedded_catalog() -> tuple[list[dict], np.ndarray]:
     examples = get_semantic_examples()
 
     texts = [item["example"] for item in examples]
-    embeddings = model.encode(texts, normalize_embeddings=True)
+    embeddings = model.encode(
+            texts,
+            show_progress_bar=False,
+            normalize_embeddings=True,
+        )
 
     return examples, np.array(embeddings)
 
@@ -73,7 +77,11 @@ def route_prompt_by_embedding(
     model = load_embedding_model()
     examples, catalog_embeddings = get_embedded_catalog()
 
-    prompt_embedding = model.encode([prompt], normalize_embeddings=True)
+    prompt_embedding = model.encode(
+        [prompt],
+        show_progress_bar=False,
+        normalize_embeddings=True,
+        )
     similarities = cosine_similarity(prompt_embedding, catalog_embeddings)[0]
 
     best_index = int(np.argmax(similarities))
