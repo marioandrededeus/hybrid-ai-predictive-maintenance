@@ -6,7 +6,7 @@ import src.llm.embedding_router as embedding_router
 class FakeEmbeddingModel:
     """Small deterministic fake model for unit tests."""
 
-    def encode(self, texts, normalize_embeddings=True):
+    def encode(self, texts, show_progress_bar=False, normalize_embeddings=True):
         vectors = []
 
         for text in texts:
