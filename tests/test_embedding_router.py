@@ -35,11 +35,13 @@ def fake_semantic_examples():
         {
             "intent": "highest_risk_assets",
             "example": "which assets have the highest anomaly risk",
+            "approved_question": "Which monitored assets have the highest anomaly risk?",
             "sql": "SELECT 1;",
         },
         {
             "intent": "high_severity_diagnostics",
             "example": "show high severity diagnostics",
+            "approved_question": "Show high severity predictive maintenance diagnostics.",
             "sql": "SELECT 2;",
         },
     ]
@@ -99,3 +101,20 @@ def test_embedding_router_blocks_low_similarity_prompt(monkeypatch):
     assert result["status"] == "not_matched"
     assert result["intent"] is None
     assert result["sql"] is None
+
+def test_suggest_approved_questions_returns_ranked_options(monkeypatch):
+    setup_fake_embedding_router(monkeypatch)
+
+    suggestions = embedding_router.suggest_approved_questions(
+        "which machines look most critical?",
+        top_k=2,
+    )
+
+    assert isinstance(suggestions, list)
+    assert len(suggestions) == 2
+    assert suggestions[0]["intent"] == "highest_risk_assets"
+    assert suggestions[0]["suggested_question"] == (
+        "Which monitored assets have the highest anomaly risk?"
+    )
+    assert "matched_example" in suggestions[0]
+    assert "similarity_score" in suggestions[0]

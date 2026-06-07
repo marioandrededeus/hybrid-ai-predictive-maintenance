@@ -36,6 +36,7 @@ def get_semantic_examples() -> list[dict]:
                 {
                     "intent": intent,
                     "example": example,
+                    "approved_question": template.get("approved_question", example),
                     "sql": template["sql"],
                 }
             )
@@ -106,3 +107,52 @@ def route_prompt_by_embedding(
         "matched_example": best_match["example"],
         "routing_method": "embedding_similarity",
     }
+
+def suggest_approved_questions(prompt: str, top_k: int = 3) -> list[dict]:
+    """
+    Suggest approved questions for an ambiguous prompt.
+
+    This function does not execute SQL.
+    It only returns the closest approved questions based on embedding similarity.
+    """
+
+    if not prompt or not prompt.strip():
+        return []
+
+    model = load_embedding_model()
+    examples, catalog_embeddings = get_embedded_catalog()
+
+    prompt_embedding = model.encode(
+        [prompt],
+        show_progress_bar=False,
+        normalize_embeddings=True,
+    )
+
+    similarities = cosine_similarity(prompt_embedding, catalog_embeddings)[0]
+    ranked_indices = np.argsort(similarities)[::-1]
+
+    suggestions = []
+    seen_questions = set()
+
+    for index in ranked_indices:
+        example = examples[int(index)]
+        approved_question = example["approved_question"]
+
+        if approved_question in seen_questions:
+            continue
+
+        suggestions.append(
+            {
+                "intent": example["intent"],
+                "suggested_question": approved_question,
+                "matched_example": example["example"],
+                "similarity_score": round(float(similarities[index]), 4),
+            }
+        )
+
+        seen_questions.add(approved_question)
+
+        if len(suggestions) >= top_k:
+            break
+
+    return suggestions
