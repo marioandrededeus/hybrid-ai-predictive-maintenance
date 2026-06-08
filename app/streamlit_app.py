@@ -2,11 +2,12 @@
 Streamlit app for the Hybrid AI Predictive Maintenance project.
 
 This version focuses the user experience on two flows:
-1. Monitoring: latest condition by equipment with rule-based action plans.
-2. Chat GenAI: natural-language database consultation using controlled routing,
-   approved SQL templates, embedding fallback, and SQL Guard.
+1. Monitoring: latest condition by equipment using a selected collection date,
+   raw vibration samples, FFT, PSD, and deterministic action plans.
+2. Semantic AI Query: natural-language database consultation using controlled routing,
+   approved SQL templates, embedding fallback, cosine similarity, and SQL Guard.
 
-No LLM or agent is used yet to generate action plans. The current action plan
+This version does not depend on paid external generative AI services. The current action plan
 layer is deterministic and rule-based.
 """
 
@@ -15,7 +16,9 @@ from __future__ import annotations
 from pathlib import Path
 from html import escape
 import sys
+import base64
 
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -25,87 +28,107 @@ import streamlit as st
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(PROJECT_ROOT))
 
-from src.database.queries import get_full_diagnostic_view, get_scenarios  # noqa: E402
-from src.llm.text_to_sql import run_text_to_sql  # noqa: E402
+from src.database.queries import (  # noqa: E402
+    get_available_collection_dates,
+    get_full_diagnostic_view,
+    get_latest_measurements_until_date,
+    get_raw_vibration_samples,
+    get_scenarios,
+)
+from src.llm.embedding_router import suggest_approved_questions  # noqa: E402
 from src.llm.semantic_query_router import (  # noqa: E402
     get_supported_demo_questions,
     get_supported_query_examples,
     route_prompt_to_sql,
 )
-from src.llm.embedding_router import suggest_approved_questions  # noqa: E402
+from src.llm.text_to_sql import run_text_to_sql  # noqa: E402
+
+
+APP_DIR = Path(__file__).resolve().parent
+PAGE_ICON_PATH = APP_DIR / "page_icon.png"
+SIDEBAR_BACKGROUND_PATH = APP_DIR / "background_sidebar.png"
 
 
 st.set_page_config(
-    page_title="Hybrid AI for Predictive Maintenance",
-    page_icon="🏭",
+    page_title="Semantic AI Predictive Maintenance",
+    page_icon=str(PAGE_ICON_PATH),
     layout="wide",
 )
 
+def get_base64_image(image_path: Path) -> str:
+    """Encode a local image file as base64 for CSS usage."""
+    if not image_path.exists():
+        return ""
 
-# -----------------------------------------------------------------------------
-# Data loading and global filters
-# -----------------------------------------------------------------------------
-
-
-def load_data() -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Load scenarios and diagnostic data from SQLite."""
-    scenarios_df = get_scenarios()
-    diagnostic_df = get_full_diagnostic_view()
-    return scenarios_df, diagnostic_df
+    with image_path.open("rb") as image_file:
+        return base64.b64encode(image_file.read()).decode()
 
 
-def render_header() -> None:
-    """Render the app header."""
-    st.title("Hybrid AI for Predictive Maintenance")
+def apply_sidebar_background() -> None:
+    """Apply a custom background image to the Streamlit sidebar."""
+    encoded_image = get_base64_image(SIDEBAR_BACKGROUND_PATH)
+
+    if not encoded_image:
+        return
+
     st.markdown(
-        """
-        A practical lab for combining Machine Learning, controlled GenAI-style
-        database interaction, SQL safety, and deterministic action planning in
-        an industrial predictive maintenance scenario.
-        """
+        f"""
+        <style>
+        [data-testid="stSidebar"] {{
+            background-image:
+                linear-gradient(
+                    rgba(5, 18, 32, 0.78),
+                    rgba(5, 18, 32, 0.90)
+                ),
+                url("data:image/png;base64,{encoded_image}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }}
+
+        [data-testid="stSidebar"] h1,
+        [data-testid="stSidebar"] h2,
+        [data-testid="stSidebar"] h3,
+        [data-testid="stSidebar"] h4,
+        [data-testid="stSidebar"] p,
+        [data-testid="stSidebar"] label,
+        [data-testid="stSidebar"] span,
+        [data-testid="stSidebar"] div {{
+            color: #F8FAFC;
+        }}
+
+        [data-testid="stSidebar"] hr {{
+            border-color: rgba(248, 250, 252, 0.25);
+        }}
+
+        /* Selectbox closed field text */
+        [data-testid="stSidebar"] [data-baseweb="select"] div {{
+            color: #111827 !important;
+        }}
+
+        /* Selectbox selected value */
+        [data-testid="stSidebar"] [data-baseweb="select"] span {{
+            color: #111827 !important;
+        }}
+
+        /* Selectbox input */
+        [data-testid="stSidebar"] [data-baseweb="select"] input {{
+            color: #111827 !important;
+        }}
+
+        /* Selectbox white container */
+        [data-testid="stSidebar"] [data-baseweb="select"] > div {{
+            background-color: #FFFFFF !important;
+            color: #111827 !important;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
     )
-
-
-def render_sidebar(scenarios_df: pd.DataFrame) -> str:
-    """Render sidebar filters and return selected scenario."""
-    st.sidebar.header("Monitoring filter")
-
-    scenario_options = ["All scenarios"] + scenarios_df["scenario_label"].tolist()
-
-    selected_scenario_label = st.sidebar.selectbox(
-        "Choose an industrial scenario",
-        scenario_options,
-    )
-
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### Initial scenarios")
-    st.sidebar.markdown(
-        """
-        1. Normal operation  
-        2. Carpet pattern associated with possible lubrication issues  
-        3. Structural looseness
-        """
-    )
-
-    st.sidebar.markdown("---")
-    st.sidebar.caption(
-        "The monitoring view uses the latest available measurement for each equipment. "
-        "The Chat GenAI view queries the database through approved SQL routes."
-    )
-
-    return selected_scenario_label
-
-
-def filter_data(df: pd.DataFrame, selected_scenario_label: str) -> pd.DataFrame:
-    """Filter diagnostic data according to selected scenario."""
-    if selected_scenario_label == "All scenarios":
-        return df.copy()
-
-    return df[df["scenario_label"] == selected_scenario_label].copy()
 
 
 # -----------------------------------------------------------------------------
-# Deterministic status and action-plan logic
+# General utilities
 # -----------------------------------------------------------------------------
 
 
@@ -120,6 +143,488 @@ def safe_float(value, default: float = 0.0) -> float:
         return default
 
 
+def first_existing_value(row: pd.Series, fields: list[str], default: str = "") -> str:
+    """Return the first non-empty value from a row using candidate field names."""
+    for field in fields:
+        if field in row.index and pd.notna(row.get(field)):
+            value = str(row.get(field))
+            if value.strip():
+                return value
+    return default
+
+
+def normalize_card_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Add legacy-friendly aliases expected by the card renderer.
+
+    The database evolved from aggregated diagnostic columns to a raw-vibration
+    scoring schema. This function keeps the UI robust while the SQL layer and
+    old tests still use some legacy names.
+    """
+    if df.empty:
+        return df.copy()
+
+    normalized_df = df.copy()
+
+    alias_pairs = {
+        "rms_velocity": "rms_velocity_mm_s",
+        "peak_velocity": "peak_velocity_mm_s",
+        "anomaly_score": "overall_anomaly_score",
+        "predicted_label": "predicted_condition",
+        "explanation": "diagnostic_explanation",
+        "location": "plant_area",
+    }
+
+    for legacy_column, new_column in alias_pairs.items():
+        if legacy_column not in normalized_df.columns and new_column in normalized_df.columns:
+            normalized_df[legacy_column] = normalized_df[new_column]
+
+    if "severity_level" not in normalized_df.columns and "severity" in normalized_df.columns:
+        normalized_df["severity_level"] = normalized_df["severity"].map(
+            {
+                "Critical": "High",
+                "Attention": "Medium",
+                "Normal": "Low",
+            }
+        ).fillna(normalized_df["severity"])
+
+    if "asset_code" not in normalized_df.columns and "asset_name" in normalized_df.columns:
+        normalized_df["asset_code"] = normalized_df["asset_name"]
+
+    return normalized_df
+
+
+# -----------------------------------------------------------------------------
+# Raw vibration signal processing and charts
+# -----------------------------------------------------------------------------
+
+
+def calculate_single_sided_fft(
+    signal: np.ndarray,
+    sampling_rate_hz: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Calculate a single-sided FFT amplitude spectrum."""
+    if signal is None or len(signal) == 0:
+        return np.array([]), np.array([])
+
+    signal = np.asarray(signal, dtype=float)
+    signal = signal - np.mean(signal)
+
+    n_samples = len(signal)
+    fft_values = np.fft.rfft(signal)
+    frequencies = np.fft.rfftfreq(n_samples, d=1.0 / sampling_rate_hz)
+
+    amplitudes = np.abs(fft_values) / n_samples
+
+    if len(amplitudes) > 2:
+        amplitudes[1:-1] = 2.0 * amplitudes[1:-1]
+
+    return frequencies, amplitudes
+
+
+def calculate_welch_like_psd(
+    signal: np.ndarray,
+    sampling_rate_hz: float,
+    segment_size: int = 256,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Calculate a compact Welch-like PSD without requiring scipy."""
+    if signal is None or len(signal) == 0:
+        return np.array([]), np.array([])
+
+    signal = np.asarray(signal, dtype=float)
+    signal = signal - np.mean(signal)
+
+    n_samples = len(signal)
+
+    if n_samples < segment_size:
+        segment_size = n_samples
+
+    if segment_size < 8:
+        return np.array([]), np.array([])
+
+    step = max(segment_size // 2, 1)
+    window = np.hanning(segment_size)
+    window_power = np.sum(window**2)
+
+    psd_segments = []
+
+    for start in range(0, n_samples - segment_size + 1, step):
+        segment = signal[start : start + segment_size]
+        segment = segment - np.mean(segment)
+        windowed_segment = segment * window
+
+        fft_values = np.fft.rfft(windowed_segment)
+        psd = (np.abs(fft_values) ** 2) / (sampling_rate_hz * window_power)
+        psd_segments.append(psd)
+
+    if not psd_segments:
+        return np.array([]), np.array([])
+
+    psd_mean = np.mean(psd_segments, axis=0)
+    frequencies = np.fft.rfftfreq(segment_size, d=1.0 / sampling_rate_hz)
+
+    return frequencies, psd_mean
+
+
+def build_time_series_chart(
+    raw_samples: pd.DataFrame,
+    asset_code: str,
+) -> go.Figure:
+    """Build time-domain vibration chart from raw samples."""
+    fig = go.Figure()
+
+    if raw_samples.empty:
+        fig.update_layout(
+            title="Raw vibration signal unavailable",
+            height=220,
+            margin=dict(l=10, r=10, t=35, b=10),
+        )
+        return fig
+
+    fig.add_trace(
+        go.Scatter(
+            x=raw_samples["time_seconds"],
+            y=raw_samples["velocity_mm_s"],
+            mode="lines",
+            name="Velocity",
+        )
+    )
+
+    fig.update_layout(
+        title=f"{asset_code} | Raw vibration signal",
+        xaxis_title="Time [s]",
+        yaxis_title="Velocity [mm/s]",
+        height=240,
+        margin=dict(l=10, r=10, t=45, b=10),
+        showlegend=False,
+    )
+
+    return fig
+
+
+def build_fft_chart(
+    raw_samples: pd.DataFrame,
+    sampling_rate_hz: float,
+    rpm: float,
+    asset_code: str,
+    predicted_condition: str,
+) -> go.Figure:
+    """Build FFT chart with 0.5x, 1x, 1.5x, 2x and 3x rotational markers."""
+    fig = go.Figure()
+
+    if raw_samples.empty:
+        fig.update_layout(
+            title="FFT unavailable",
+            height=260,
+            margin=dict(l=10, r=10, t=35, b=10),
+        )
+        return fig
+
+    signal = raw_samples["velocity_mm_s"].to_numpy()
+    frequencies, amplitudes = calculate_single_sided_fft(
+        signal=signal,
+        sampling_rate_hz=sampling_rate_hz,
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=frequencies,
+            y=amplitudes,
+            mode="lines",
+            name="FFT amplitude",
+        )
+    )
+
+    rotational_frequency_hz = rpm / 60.0 if rpm else None
+
+    if rotational_frequency_hz and len(frequencies) > 0:
+        markers = [
+            (0.5, "0.5x"),
+            (1.0, "1x"),
+            (1.5, "1.5x"),
+            (2.0, "2x"),
+            (3.0, "3x"),
+        ]
+
+        for multiplier, label in markers:
+            marker_frequency = rotational_frequency_hz * multiplier
+
+            if marker_frequency <= frequencies.max():
+                fig.add_vline(
+                    x=marker_frequency,
+                    line_dash="dash",
+                    annotation_text=label,
+                    annotation_position="top",
+                )
+
+    max_frequency_to_show = min(300, float(frequencies.max())) if len(frequencies) else 300
+
+    fig.update_layout(
+        title=f"{asset_code} | FFT spectrum | {predicted_condition}",
+        xaxis_title="Frequency [Hz]",
+        yaxis_title="Amplitude [mm/s]",
+        xaxis_range=[0, max_frequency_to_show],
+        height=280,
+        margin=dict(l=10, r=10, t=45, b=10),
+        showlegend=False,
+    )
+
+    return fig
+
+
+def build_psd_chart(
+    raw_samples: pd.DataFrame,
+    sampling_rate_hz: float,
+    asset_code: str,
+) -> go.Figure:
+    """Build PSD chart to show broadband spectral floor behavior."""
+    fig = go.Figure()
+
+    if raw_samples.empty:
+        fig.update_layout(
+            title="PSD unavailable",
+            height=260,
+            margin=dict(l=10, r=10, t=35, b=10),
+        )
+        return fig
+
+    signal = raw_samples["velocity_mm_s"].to_numpy()
+    frequencies, psd = calculate_welch_like_psd(
+        signal=signal,
+        sampling_rate_hz=sampling_rate_hz,
+        segment_size=256,
+    )
+
+    if len(frequencies) == 0:
+        fig.update_layout(
+            title="PSD unavailable",
+            height=260,
+            margin=dict(l=10, r=10, t=35, b=10),
+        )
+        return fig
+
+    fig.add_trace(
+        go.Scatter(
+            x=frequencies,
+            y=psd,
+            mode="lines",
+            name="PSD",
+        )
+    )
+
+    max_frequency_to_show = min(500, float(frequencies.max()))
+
+    fig.update_layout(
+        title=f"{asset_code} | PSD / broadband energy",
+        xaxis_title="Frequency [Hz]",
+        yaxis_title="Power spectral density",
+        xaxis_range=[0, max_frequency_to_show],
+        yaxis_type="log",
+        height=280,
+        margin=dict(l=10, r=10, t=45, b=10),
+        showlegend=False,
+    )
+
+    return fig
+
+
+def render_vibration_charts_for_measurement(
+    measurement_row: pd.Series,
+    chart_key_prefix: str,
+) -> None:
+    """Render raw signal, FFT and PSD charts for a measurement."""
+    if "measurement_id" not in measurement_row.index or pd.isna(measurement_row.get("measurement_id")):
+        st.info("Raw vibration charts require a measurement_id.")
+        return
+
+    measurement_id = int(measurement_row["measurement_id"])
+    asset_code = first_existing_value(
+        measurement_row,
+        ["asset_code", "asset_name"],
+        default="Asset",
+    )
+    sampling_rate_hz = safe_float(measurement_row.get("sampling_rate_hz"), 1024.0)
+    rpm = safe_float(measurement_row.get("rpm"), 1800.0)
+    predicted_condition = first_existing_value(
+        measurement_row,
+        ["predicted_condition", "predicted_label", "scenario_name"],
+        default="unknown_condition",
+    )
+
+    raw_samples = get_raw_vibration_samples(measurement_id)
+
+    chart_tab_1, chart_tab_2, chart_tab_3 = st.tabs(
+        [
+            "Raw signal",
+            "FFT",
+            "PSD",
+        ]
+    )
+
+    with chart_tab_1:
+        st.plotly_chart(
+            build_time_series_chart(
+                raw_samples=raw_samples,
+                asset_code=asset_code,
+            ),
+            use_container_width=True,
+            key=f"{chart_key_prefix}_raw",
+        )
+
+    with chart_tab_2:
+        st.plotly_chart(
+            build_fft_chart(
+                raw_samples=raw_samples,
+                sampling_rate_hz=sampling_rate_hz,
+                rpm=rpm,
+                asset_code=asset_code,
+                predicted_condition=predicted_condition,
+            ),
+            use_container_width=True,
+            key=f"{chart_key_prefix}_fft",
+        )
+
+    with chart_tab_3:
+        st.plotly_chart(
+            build_psd_chart(
+                raw_samples=raw_samples,
+                sampling_rate_hz=sampling_rate_hz,
+                asset_code=asset_code,
+            ),
+            use_container_width=True,
+            key=f"{chart_key_prefix}_psd",
+        )
+
+
+# -----------------------------------------------------------------------------
+# Data loading and global filters
+# -----------------------------------------------------------------------------
+
+
+@st.cache_data(show_spinner=False)
+def load_scenarios() -> pd.DataFrame:
+    """Load scenarios from SQLite."""
+    return get_scenarios()
+
+
+@st.cache_data(show_spinner=False)
+def load_diagnostic_data() -> pd.DataFrame:
+    """Load full diagnostic data from SQLite for Chat and trend views."""
+    return normalize_card_columns(get_full_diagnostic_view())
+
+
+@st.cache_data(show_spinner=False)
+def load_available_dates() -> pd.DataFrame:
+    """Load available collection dates from SQLite.
+
+    The query helper may return either a DataFrame or a plain list, depending
+    on the current implementation. The Streamlit layer normalizes both cases
+    to a DataFrame with one column: collection_date.
+    """
+
+    available_dates = get_available_collection_dates()
+
+    if isinstance(available_dates, pd.DataFrame):
+        if "collection_date" in available_dates.columns:
+            normalized_dates = available_dates[["collection_date"]].copy()
+        elif len(available_dates.columns) > 0:
+            normalized_dates = available_dates.iloc[:, [0]].copy()
+            normalized_dates.columns = ["collection_date"]
+        else:
+            normalized_dates = pd.DataFrame(columns=["collection_date"])
+    else:
+        normalized_dates = pd.DataFrame(
+            {"collection_date": [str(date) for date in available_dates]}
+        )
+
+    normalized_dates = normalized_dates.dropna()
+    normalized_dates["collection_date"] = normalized_dates["collection_date"].astype(str)
+    normalized_dates = normalized_dates.drop_duplicates().sort_values("collection_date")
+
+    return normalized_dates.reset_index(drop=True)
+
+
+@st.cache_data(show_spinner=False)
+def load_latest_measurements_until_date(collection_date: str) -> pd.DataFrame:
+    """Load the latest measurement for each equipment until the selected date."""
+    return normalize_card_columns(get_latest_measurements_until_date(collection_date))
+
+
+def render_header() -> None:
+    """Render the app header."""
+    st.title("Semantic AI for Predictive Maintenance")
+    st.markdown(
+        """
+        A practical lab for combining physics-informed condition monitoring,
+        Semantic AI database interaction, SQL safety, raw vibration signal
+        analysis, and deterministic action planning in an industrial predictive
+        maintenance scenario.
+        """
+    )
+
+
+def render_sidebar(scenarios_df: pd.DataFrame) -> tuple[str, str | None]:
+    """Render sidebar filters and return selected scenario and collection date."""
+    st.sidebar.header("Monitoring filter")
+
+    scenario_options = ["All scenarios"] + scenarios_df["scenario_label"].tolist()
+
+    selected_scenario_label = st.sidebar.selectbox(
+        "Choose an industrial scenario",
+        scenario_options,
+    )
+
+    available_dates = load_available_dates()
+    selected_collection_date = None
+
+    if not available_dates.empty and "collection_date" in available_dates.columns:
+        date_options = available_dates["collection_date"].astype(str).tolist()
+        selected_collection_date = st.sidebar.selectbox(
+            "Collection date",
+            options=date_options,
+            index=len(date_options) - 1,
+            help="Monitoring cards use the latest available reading for each equipment up to this date.",
+        )
+    else:
+        st.sidebar.warning("No collection dates found in the database.")
+
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### Initial scenarios")
+    st.sidebar.markdown(
+        """
+        1. Normal operation  
+        2. Carpet pattern associated with possible lubrication issues  
+        3. Structural looseness
+        """
+    )
+
+    st.sidebar.markdown("---")
+    st.sidebar.caption(
+        "Monitoring uses the latest measurement for each equipment up to the selected date. "
+        "Semantic AI Query uses approved SQL routes, keyword matching, embeddings, cosine similarity, and SQL Guard."
+    )
+
+    return selected_scenario_label, selected_collection_date
+
+
+def filter_data(df: pd.DataFrame, selected_scenario_label: str) -> pd.DataFrame:
+    """Filter diagnostic data according to selected scenario."""
+    if df.empty:
+        return df.copy()
+
+    if selected_scenario_label == "All scenarios":
+        return df.copy()
+
+    if "scenario_label" not in df.columns:
+        return df.copy()
+
+    return df[df["scenario_label"] == selected_scenario_label].copy()
+
+
+# -----------------------------------------------------------------------------
+# Deterministic status and action-plan logic
+# -----------------------------------------------------------------------------
+
+
 def get_row_risk_score(row: pd.Series) -> float:
     """Return the strongest available risk signal for a row."""
     risk_fields = [
@@ -127,6 +632,7 @@ def get_row_risk_score(row: pd.Series) -> float:
         "max_anomaly_probability",
         "avg_anomaly_probability",
         "anomaly_score",
+        "overall_anomaly_score",
         "max_anomaly_score",
         "avg_anomaly_score",
     ]
@@ -137,12 +643,13 @@ def get_row_risk_score(row: pd.Series) -> float:
 
 def classify_equipment_status(row: pd.Series) -> dict:
     """Classify equipment condition based on latest severity and risk indicators."""
-    severity = str(row.get("severity_level", "")).lower()
+    severity = str(row.get("severity", "")).lower()
+    severity_level = str(row.get("severity_level", "")).lower()
     max_severity = str(row.get("max_recorded_severity", "")).lower()
-    severity_reference = severity or max_severity
+    severity_reference = severity or severity_level or max_severity
     risk_score = get_row_risk_score(row)
 
-    if severity_reference == "high" or risk_score >= 0.70:
+    if severity_reference in {"critical", "high"} or risk_score >= 0.70:
         return {
             "status_label": "Critical",
             "status_emoji": "🔴",
@@ -150,7 +657,7 @@ def classify_equipment_status(row: pd.Series) -> dict:
             "status_description": "Immediate attention required",
         }
 
-    if severity_reference == "medium" or risk_score >= 0.40:
+    if severity_reference in {"attention", "medium"} or risk_score >= 0.40:
         return {
             "status_label": "Attention",
             "status_emoji": "🟡",
@@ -170,9 +677,20 @@ def infer_action_plan(row: pd.Series) -> str:
     """Infer a deterministic recommended action from diagnostic features."""
     status = classify_equipment_status(row)["status_label"]
 
+    existing_action = first_existing_value(row, ["recommended_action"], default="")
+    if existing_action:
+        return existing_action
+
     scenario_text = " ".join(
         str(row.get(field, ""))
-        for field in ["scenario_name", "scenario_label", "predicted_label", "explanation"]
+        for field in [
+            "scenario_name",
+            "scenario_label",
+            "predicted_condition",
+            "predicted_label",
+            "diagnostic_explanation",
+            "explanation",
+        ]
     ).lower()
 
     broadband_energy = safe_float(row.get("broadband_energy"))
@@ -227,11 +745,6 @@ def infer_action_plan(row: pd.Series) -> str:
     return "Nenhuma ação requerida. Manter monitoramento periódico."
 
 
-def get_criticality_color(row: pd.Series) -> str:
-    """Return a card accent color based on deterministic status classification."""
-    return classify_equipment_status(row)["status_color"]
-
-
 # -----------------------------------------------------------------------------
 # Card preparation and rendering
 # -----------------------------------------------------------------------------
@@ -244,7 +757,9 @@ def get_latest_equipment_rows(df: pd.DataFrame) -> pd.DataFrame:
 
     latest_df = df.copy()
 
-    if "asset_name" not in latest_df.columns:
+    group_column = "asset_id" if "asset_id" in latest_df.columns else "asset_name"
+
+    if group_column not in latest_df.columns:
         return latest_df.reset_index(drop=True)
 
     if "timestamp" in latest_df.columns:
@@ -264,12 +779,12 @@ def get_latest_equipment_rows(df: pd.DataFrame) -> pd.DataFrame:
         latest_df["_measurement_sort"] = 0
 
     latest_df = latest_df.sort_values(
-        ["asset_name", "_timestamp_sort", "_measurement_sort"],
+        [group_column, "_timestamp_sort", "_measurement_sort"],
         ascending=[True, False, False],
     )
 
     latest_df = (
-        latest_df.groupby("asset_name", as_index=False)
+        latest_df.groupby(group_column, as_index=False)
         .head(1)
         .drop(columns=["_timestamp_sort", "_measurement_sort"], errors="ignore")
         .reset_index(drop=True)
@@ -283,9 +798,9 @@ def prepare_equipment_card_rows(df: pd.DataFrame, one_card_per_equipment: bool) 
     if df.empty:
         return df.copy()
 
-    prepared_df = df.copy()
+    prepared_df = normalize_card_columns(df)
 
-    if one_card_per_equipment and "asset_name" in prepared_df.columns:
+    if one_card_per_equipment:
         prepared_df = get_latest_equipment_rows(prepared_df)
     else:
         prepared_df = prepared_df.reset_index(drop=True)
@@ -310,12 +825,18 @@ def prepare_equipment_card_rows(df: pd.DataFrame, one_card_per_equipment: bool) 
     return prepared_df.reset_index(drop=True)
 
 
-
 def infer_diagnostic_chart_type(row: pd.Series) -> str:
     """Infer which compact chart best explains the current diagnostic card."""
     scenario_text = " ".join(
         str(row.get(field, ""))
-        for field in ["scenario_name", "scenario_label", "predicted_label", "explanation"]
+        for field in [
+            "scenario_name",
+            "scenario_label",
+            "predicted_condition",
+            "predicted_label",
+            "diagnostic_explanation",
+            "explanation",
+        ]
     ).lower()
 
     broadband_energy = safe_float(row.get("broadband_energy"))
@@ -447,6 +968,7 @@ def render_diagnostic_evidence_chart(row: pd.Series, chart_key: str) -> None:
         key=chart_key,
     )
 
+
 def render_equipment_cards(
     result_df: pd.DataFrame,
     *,
@@ -454,6 +976,7 @@ def render_equipment_cards(
     one_card_per_equipment: bool = True,
     max_cards: int = 12,
     show_full_table: bool = True,
+    show_raw_vibration_charts: bool = False,
 ) -> None:
     """Render equipment-oriented cards with status and deterministic action plan."""
     if result_df.empty:
@@ -490,15 +1013,25 @@ def render_equipment_cards(
 
             title_parts = []
 
-            if "asset_name" in card_df.columns and pd.notna(row.get("asset_name")):
-                title_parts.append(str(row["asset_name"]))
+            asset_code = first_existing_value(row, ["asset_code"], default="")
+            asset_name = first_existing_value(row, ["asset_name"], default="")
+
+            if asset_code and asset_name and asset_code != asset_name:
+                title_parts.append(f"{asset_code} | {asset_name}")
+            elif asset_name:
+                title_parts.append(asset_name)
+            elif asset_code:
+                title_parts.append(asset_code)
             else:
                 title_parts.append(f"Result {row_index + 1}")
 
-            if "scenario_label" in card_df.columns and pd.notna(row.get("scenario_label")):
-                title_parts.append(str(row["scenario_label"]))
-            elif "scenario_name" in card_df.columns and pd.notna(row.get("scenario_name")):
-                title_parts.append(str(row["scenario_name"]))
+            scenario_label = first_existing_value(
+                row,
+                ["scenario_label", "scenario_name"],
+                default="",
+            )
+            if scenario_label:
+                title_parts.append(scenario_label)
 
             if "measurement_id" in card_df.columns and pd.notna(row.get("measurement_id")):
                 title_parts.append(f"Measurement {row['measurement_id']}")
@@ -513,6 +1046,8 @@ def render_equipment_cards(
                 ("Peak velocity", "peak_velocity"),
                 ("Anomaly score", "anomaly_score"),
                 ("Anomaly probability", "anomaly_probability"),
+                ("Carpet score", "carpet_score"),
+                ("Looseness score", "looseness_score"),
                 ("Avg anomaly score", "avg_anomaly_score"),
                 ("Max anomaly score", "max_anomaly_score"),
                 ("Avg anomaly probability", "avg_anomaly_probability"),
@@ -545,9 +1080,12 @@ def render_equipment_cards(
                 ("Asset type", "asset_type"),
                 ("Location", "location"),
                 ("Scenario", "scenario_name"),
+                ("Predicted condition", "predicted_condition"),
                 ("Predicted label", "predicted_label"),
                 ("Timestamp", "timestamp"),
                 ("Sensor", "sensor_position"),
+                ("RPM", "rpm"),
+                ("Sampling rate", "sampling_rate_hz"),
             ]
 
             detail_html_parts = []
@@ -562,13 +1100,18 @@ def render_equipment_cards(
 
             detail_html = "".join(detail_html_parts)
 
+            explanation_value = first_existing_value(
+                row,
+                ["diagnostic_explanation", "explanation"],
+                default="",
+            )
             explanation_html = ""
 
-            if "explanation" in card_df.columns and pd.notna(row.get("explanation")):
+            if explanation_value:
                 explanation_html = (
                     "<div style='font-size:11.5px;line-height:1.35;margin-top:8px;color:#374151;'>"
                     "<strong>Diagnostic evidence:</strong><br>"
-                    f"{escape(str(row['explanation']))}"
+                    f"{escape(explanation_value)}"
                     "</div>"
                 )
 
@@ -613,6 +1156,13 @@ def render_equipment_cards(
                     chart_key=f"diagnostic_evidence_{start_index}_{column_index}_{row_index}",
                 )
 
+                if show_raw_vibration_charts:
+                    with st.expander("Raw vibration analysis", expanded=False):
+                        render_vibration_charts_for_measurement(
+                            row,
+                            chart_key_prefix=f"vibration_{start_index}_{column_index}_{row_index}",
+                        )
+
     if len(card_df) > max_cards:
         st.info(
             f"{len(card_df) - max_cards} additional equipment row(s) are available in the full table below."
@@ -638,27 +1188,40 @@ def render_equipment_cards(
 # -----------------------------------------------------------------------------
 
 
-def render_monitoring_mode(filtered_df: pd.DataFrame) -> None:
+def render_monitoring_mode(
+    monitoring_df: pd.DataFrame,
+    *,
+    selected_collection_date: str | None,
+) -> None:
     """Render latest equipment monitoring cards."""
     st.header("Monitoring")
     st.markdown(
         """
         Latest available condition by equipment. Each card uses the most recent
-        measurement for that equipment and applies a deterministic rule-based
-        action plan. No LLM or agent is used to generate these actions yet.
+        measurement for that equipment up to the selected collection date and
+        applies a deterministic rule-based action plan. These actions are not generated by external AI services.
         """
     )
 
+    if selected_collection_date:
+        st.info(
+            f"Monitoring snapshot: latest reading for each equipment up to **{selected_collection_date}**."
+        )
+
     latest_equipment_df = prepare_equipment_card_rows(
-        filtered_df,
+        monitoring_df,
         one_card_per_equipment=True,
     )
 
     if latest_equipment_df.empty:
-        st.warning("No monitoring data found for the selected filter.")
+        st.warning("No monitoring data found for the selected filter/date.")
         return
 
-    total_assets = latest_equipment_df["asset_name"].nunique() if "asset_name" in latest_equipment_df.columns else len(latest_equipment_df)
+    total_assets = (
+        latest_equipment_df["asset_name"].nunique()
+        if "asset_name" in latest_equipment_df.columns
+        else len(latest_equipment_df)
+    )
     critical_assets = int((latest_equipment_df["status_label"] == "Critical").sum())
     attention_assets = int((latest_equipment_df["status_label"] == "Attention").sum())
     normal_assets = int((latest_equipment_df["status_label"] == "Normal").sum())
@@ -669,20 +1232,26 @@ def render_monitoring_mode(filtered_df: pd.DataFrame) -> None:
     col3.metric("Attention", attention_assets)
     col4.metric("Normal", normal_assets)
 
-    st.markdown("### Equipment status and recommended action")
+    st.markdown("### Equipment status, action plan and vibration evidence")
     render_equipment_cards(
         latest_equipment_df,
         one_card_per_equipment=False,
         max_cards=24,
         show_full_table=True,
+        show_raw_vibration_charts=True,
     )
 
     with st.expander("Monitoring trends", expanded=False):
-        render_charts(filtered_df)
+        trend_df = load_diagnostic_data()
+        if selected_collection_date and "collection_date" in trend_df.columns:
+            trend_df = trend_df[
+                trend_df["collection_date"].astype(str) <= str(selected_collection_date)
+            ].copy()
+        render_charts(trend_df)
 
 
 # -----------------------------------------------------------------------------
-# Chat GenAI mode
+# Semantic AI Query mode
 # -----------------------------------------------------------------------------
 
 
@@ -778,8 +1347,8 @@ def render_query_execution_summary(
                     "matched_intent": router_response["intent"],
                     "similarity_score": router_response.get("similarity_score"),
                     "matched_example": router_response.get("matched_example"),
-                    "text_to_sql_fallback": "not used",
-                    "llm_usage": "not used yet",
+                    "template_fallback": "not used",
+                    "external_llm_usage": "not used",
                     "sql_guard": "passed" if is_valid else "blocked",
                 }
             else:
@@ -790,9 +1359,9 @@ def render_query_execution_summary(
                     "matched_intent": None,
                     "similarity_score": router_response.get("similarity_score"),
                     "matched_example": router_response.get("matched_example"),
-                    "text_to_sql_fallback": "used",
-                    "llm_usage": "not used yet",
-                    "sql_guard": "handled by mock text-to-sql flow",
+                    "template_fallback": "used",
+                    "external_llm_usage": "not used",
+                    "sql_guard": "handled by controlled template fallback",
                 }
 
             st.json(execution_path)
@@ -821,8 +1390,8 @@ def render_blocked_query_summary(router_response: dict) -> None:
                 "semantic_router": "not executed for SQL routing",
                 "clarification_suggestions": "not available",
                 "matched_intent": None,
-                "text_to_sql_fallback": "not used",
-                "llm_usage": "not used yet",
+                "template_fallback": "not used",
+                "external_llm_usage": "not used",
                 "sql_guard": "not executed",
                 "message": router_response.get("message"),
             }
@@ -830,27 +1399,28 @@ def render_blocked_query_summary(router_response: dict) -> None:
 
 
 def render_chat_genai_mode() -> None:
-    """Render the safe natural-language database consultation interface."""
-    st.header("Chat GenAI")
+    """Render the safe semantic database consultation interface."""
+    st.header("Semantic AI Query")
 
     st.markdown(
         """
-        ### Query predictive maintenance data using natural language
+        ### Query predictive maintenance data using controlled semantic routing
 
         Ask operational questions about assets, vibration patterns, anomaly risk,
         lubrication issues, structural looseness, and cases requiring human validation.
-        The current version uses controlled routing and SQL safety; LLM-based SQL
-        generation will be added in a future step.
+        This version uses a zero-cost semantic layer: Domain Guard,
+        keyword routing, embeddings, cosine similarity, approved SQL templates,
+        and SQL Guard.
         """
     )
 
     hero_col1, hero_col2, hero_col3 = st.columns(3)
 
     with hero_col1:
-        st.metric("Query mode", "Controlled GenAI")
+        st.metric("Query mode", "Semantic AI")
 
     with hero_col2:
-        st.metric("SQL generation", "Approved templates")
+        st.metric("SQL execution", "Approved templates")
 
     with hero_col3:
         st.metric("Action plan", "Rule-based")
@@ -900,7 +1470,7 @@ def render_chat_genai_mode() -> None:
             box-shadow:0 2px 6px rgba(0,0,0,0.04);
         ">
             <div style="font-size:18px;font-weight:700;color:#111827;margin-bottom:4px;">
-                Ask with GenAI-assisted database routing
+                Ask with Semantic AI database routing
             </div>
             <div style="font-size:13px;color:#4B5563;margin-bottom:8px;">
                 Start from an approved business question or write your own question in natural language.
@@ -968,7 +1538,7 @@ def render_chat_genai_mode() -> None:
         ),
     )
 
-    if st.button("Run GenAI-guided database query", type="primary"):
+    if st.button("Run Semantic AI database query", type="primary"):
         if not user_question.strip():
             st.warning("Please type or select a question.")
             return
@@ -1000,12 +1570,13 @@ def render_chat_genai_mode() -> None:
             is_valid, validation_message = validate_sql_query(sql_query)
 
             if is_valid:
-                result_df = read_sql_query(sql_query)
+                result_df = normalize_card_columns(read_sql_query(sql_query))
             else:
                 result_df = pd.DataFrame()
 
         else:
             sql_query, result_df, validation_message = run_text_to_sql(user_question)
+            result_df = normalize_card_columns(result_df)
             is_valid = (
                 validation_message == "SQL query is valid."
                 or validation_message == "SQL validation completed."
@@ -1038,6 +1609,7 @@ def render_chat_genai_mode() -> None:
                 one_card_per_equipment=True,
                 max_cards=12,
                 show_full_table=True,
+                show_raw_vibration_charts=False,
             )
 
 
@@ -1048,6 +1620,12 @@ def render_chat_genai_mode() -> None:
 
 def render_charts(df: pd.DataFrame) -> None:
     """Render exploratory vibration charts focused on timeline and spectral energy."""
+    if df.empty:
+        st.info("No data available for trend charts.")
+        return
+
+    df = normalize_card_columns(df)
+
     st.subheader("Vibration timeline")
 
     timeline_df = df.copy()
@@ -1061,11 +1639,19 @@ def render_charts(df: pd.DataFrame) -> None:
     else:
         timeline_x = "measurement_id"
 
+    y_column = "rms_velocity" if "rms_velocity" in timeline_df.columns else "rms_velocity_mm_s"
+
+    if y_column not in timeline_df.columns:
+        st.info("RMS velocity column is not available for the timeline chart.")
+        return
+
+    color_column = "scenario_label" if "scenario_label" in timeline_df.columns else None
+
     fig_timeline = px.line(
         timeline_df.sort_values(timeline_x),
         x=timeline_x,
-        y="rms_velocity",
-        color="scenario_label",
+        y=y_column,
+        color=color_column,
         markers=True,
         hover_data=[
             column
@@ -1078,6 +1664,7 @@ def render_charts(df: pd.DataFrame) -> None:
                 "anomaly_score",
                 "anomaly_probability",
                 "predicted_label",
+                "predicted_condition",
             ]
             if column in timeline_df.columns
         ],
@@ -1127,6 +1714,39 @@ def render_charts(df: pd.DataFrame) -> None:
         st.info("Spectral energy columns are not available for this view.")
 
 
+@st.cache_data(show_spinner=False)
+def load_project_markdown() -> str:
+    """Load the main project markdown used in the footer expander.
+
+    Priority:
+    1. docs/project_positioning.md, because it documents the current product narrative.
+    2. README.md, as a fallback for environments where docs are not available.
+    """
+
+    candidate_paths = [
+        PROJECT_ROOT / "docs" / "project_positioning.md",
+        PROJECT_ROOT / "README.md",
+    ]
+
+    for markdown_path in candidate_paths:
+        if markdown_path.exists():
+            return markdown_path.read_text(encoding="utf-8")
+
+    return (
+        "Project documentation was not found. "
+        "Expected one of: docs/project_positioning.md or README.md."
+    )
+
+
+def render_about_project_footer() -> None:
+    """Render the project markdown in a footer expander."""
+
+    st.markdown("---")
+
+    with st.expander("About the Project", expanded=False):
+        st.markdown(load_project_markdown())
+
+
 # -----------------------------------------------------------------------------
 # Main app
 # -----------------------------------------------------------------------------
@@ -1134,20 +1754,15 @@ def render_charts(df: pd.DataFrame) -> None:
 
 def main() -> None:
     """Run the Streamlit app."""
+    apply_sidebar_background()
     render_header()
 
-    scenarios_df, diagnostic_df = load_data()
-
-    selected_scenario_label = render_sidebar(scenarios_df)
-    filtered_df = filter_data(diagnostic_df, selected_scenario_label)
-
-    if filtered_df.empty:
-        st.warning("No data found for the selected scenario.")
-        return
+    scenarios_df = load_scenarios()
+    selected_scenario_label, selected_collection_date = render_sidebar(scenarios_df)
 
     app_mode = st.radio(
         "Choose the app mode",
-        ["Monitoramento", "Chat GenAI"],
+        ["Monitoramento", "Semantic AI"],
         horizontal=True,
         key="app_mode_selector",
     )
@@ -1155,9 +1770,21 @@ def main() -> None:
     st.markdown("---")
 
     if app_mode == "Monitoramento":
-        render_monitoring_mode(filtered_df)
-    else:
+        if not selected_collection_date:
+            st.warning("No collection date is available for Monitoring.")
+            render_about_project_footer()
+            return
+
+        monitoring_df = load_latest_measurements_until_date(selected_collection_date)
+        filtered_monitoring_df = filter_data(monitoring_df, selected_scenario_label)
+        render_monitoring_mode(
+            filtered_monitoring_df,
+            selected_collection_date=selected_collection_date,
+        )
+    elif app_mode == "Semantic AI":
         render_chat_genai_mode()
+
+    render_about_project_footer()
 
 
 if __name__ == "__main__":
