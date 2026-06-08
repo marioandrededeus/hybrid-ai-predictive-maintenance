@@ -22,7 +22,7 @@ Humans remain responsible for operational validation.
 Add your deployed Streamlit URL here after publication:
 
 ```text
-https://your-streamlit-app-url](https://semantic-ai-predictive-maintenance.streamlit.app
+https://semantic-ai-predictive-maintenance.streamlit.app
 ```
 
 ---
