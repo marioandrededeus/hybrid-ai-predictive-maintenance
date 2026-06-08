@@ -26,9 +26,10 @@ hybrid_ai_st_env/
 .streamlit/secrets.toml
 
 # SQLite database files
-*.db
-*.sqlite
 *.sqlite3
+*.db
+# Keep the demo database versioned for Streamlit Cloud deployment
+!data/hybrid_ai_predictive_maintenance.sqlite3
 
 # Models and generated artifacts
 models/*.pkl
