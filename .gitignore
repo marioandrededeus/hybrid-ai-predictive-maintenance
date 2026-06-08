@@ -13,6 +13,7 @@ build/
 venv/
 env/
 hybrid_ai_env/
+hybrid_ai_st_env/
 
 # Environment variables
 .env

@@ -12,6 +12,9 @@ matplotlib
 scikit-learn
 joblib
 sentence-transformers
+torch 
+torchvision 
+torchaudio
 
 # Database
 sqlalchemy

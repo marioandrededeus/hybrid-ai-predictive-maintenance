@@ -60,7 +60,7 @@ def map_question_to_sql(question: str) -> str:
             vm.timestamp,
             a.asset_name,
             s.scenario_label,
-            sf.anomaly_score,
+            d.overall_anomaly_score,
             md.anomaly_probability,
             md.predicted_label
         FROM vibration_measurements vm
@@ -72,7 +72,7 @@ def map_question_to_sql(question: str) -> str:
             ON vm.measurement_id = sf.measurement_id
         LEFT JOIN ml_diagnostics md
             ON vm.measurement_id = md.measurement_id
-        ORDER BY sf.anomaly_score DESC;
+        ORDER BY d.overall_anomaly_score DESC;
         """
 
     if any(term in normalized_question for term in ["lubrication", "lubrificação", "carpet"]):
@@ -84,7 +84,7 @@ def map_question_to_sql(question: str) -> str:
             s.scenario_label,
             sf.high_frequency_energy,
             sf.broadband_energy,
-            sf.anomaly_score,
+            d.overall_anomaly_score,
             md.explanation
         FROM vibration_measurements vm
         JOIN assets a
@@ -96,7 +96,7 @@ def map_question_to_sql(question: str) -> str:
         LEFT JOIN ml_diagnostics md
             ON vm.measurement_id = md.measurement_id
         WHERE s.scenario_name = 'carpet_lubrication_issue'
-        ORDER BY sf.anomaly_score DESC;
+        ORDER BY d.overall_anomaly_score DESC;
         """
 
     if any(term in normalized_question for term in ["looseness", "folga", "structural"]):
@@ -109,7 +109,7 @@ def map_question_to_sql(question: str) -> str:
             sf.low_frequency_energy,
             sf.harmonic_ratio,
             sf.subharmonic_ratio,
-            sf.anomaly_score,
+            d.overall_anomaly_score,
             md.explanation
         FROM vibration_measurements vm
         JOIN assets a
@@ -121,7 +121,7 @@ def map_question_to_sql(question: str) -> str:
         LEFT JOIN ml_diagnostics md
             ON vm.measurement_id = md.measurement_id
         WHERE s.scenario_name = 'structural_looseness'
-        ORDER BY sf.anomaly_score DESC;
+        ORDER BY d.overall_anomaly_score DESC;
         """
 
     if any(term in normalized_question for term in ["feedback", "validation", "validação", "human"]):
@@ -158,7 +158,7 @@ def map_question_to_sql(question: str) -> str:
         s.scenario_label,
         vm.rms_velocity,
         vm.peak_velocity,
-        sf.anomaly_score,
+        d.overall_anomaly_score,
         md.predicted_label,
         md.anomaly_probability
     FROM vibration_measurements vm

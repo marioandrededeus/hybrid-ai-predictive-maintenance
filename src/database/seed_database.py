@@ -42,7 +42,7 @@ START_DATE = datetime(2026, 5, 1, 8, 0, 0)
 SCENARIOS = [
     {
         "scenario_name": "normal_operation",
-        "scenario_label": "Normal Operation",
+        "scenario_label": "Normal operation",
         "scenario_description": "Stable vibration behavior with dominant rotational component and low broadband noise.",
         "expected_fault_pattern": "Dominant 1x rotational component, low noise floor and no relevant harmonic or broadband abnormality.",
     },

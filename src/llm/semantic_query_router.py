@@ -11,9 +11,9 @@ from src.llm.domain_guard import get_domain_guard_response
 
 QUERY_TEMPLATES = [
     {
-    "intent": "average_anomaly_score_by_scenario",
-    "approved_question": "Show average anomaly score by predictive maintenance scenario.",
-    "keywords": [
+        "intent": "average_anomaly_score_by_scenario",
+        "approved_question": "Show average anomaly score by predictive maintenance scenario.",
+        "keywords": [
             "anomaly score by scenario",
             "show average anomaly score by scenario",
             "score de anomalia por cenário",
@@ -25,13 +25,23 @@ QUERY_TEMPLATES = [
             "promedio de anomalía por escenario",
             "promedio de anomalia por escenario",
         ],
+        "semantic_examples": [
+            "show average anomaly score by predictive maintenance scenario",
+            "compare anomaly score across maintenance scenarios",
+            "which scenario has the highest average anomaly score",
+            "mostrar score médio de anomalia por cenário",
+            "comparar score de anomalia entre cenários",
+            "qual cenário tem maior score médio de anomalia",
+            "mostrar promedio de score de anomalía por escenario",
+            "comparar score de anomalía entre escenarios",
+        ],
         "sql": """
             SELECT
                 s.scenario_label,
-                ROUND(AVG(sf.anomaly_score), 3) AS avg_anomaly_score
-            FROM spectral_features sf
+                ROUND(AVG(md.overall_anomaly_score), 3) AS avg_anomaly_score
+            FROM ml_diagnostics md
             JOIN vibration_measurements vm
-                ON sf.measurement_id = vm.measurement_id
+                ON md.measurement_id = vm.measurement_id
             JOIN scenarios s
                 ON vm.scenario_id = s.scenario_id
             GROUP BY s.scenario_label
@@ -53,6 +63,16 @@ QUERY_TEMPLATES = [
             "probabilidad de anomalia por escenario",
             "promedio de probabilidad de anomalía por escenario",
             "promedio de probabilidad de anomalia por escenario",
+        ],
+        "semantic_examples": [
+            "show average anomaly probability by predictive maintenance scenario",
+            "compare anomaly probability across scenarios",
+            "which scenario has the highest average anomaly probability",
+            "mostrar probabilidade média de anomalia por cenário",
+            "comparar probabilidade de anomalia entre cenários",
+            "qual cenário tem maior probabilidade média de anomalia",
+            "mostrar probabilidad promedio de anomalía por escenario",
+            "comparar probabilidad de anomalía entre escenarios",
         ],
         "sql": """
             SELECT
@@ -90,22 +110,30 @@ QUERY_TEMPLATES = [
             "que escenario tiene mayor riesgo",
             "mostrar escenarios de mayor riesgo",
         ],
+        "semantic_examples": [
+            "which predictive maintenance scenario has the highest risk",
+            "show the riskiest maintenance scenarios",
+            "rank scenarios by anomaly risk",
+            "qual cenário de manutenção preditiva tem maior risco",
+            "mostrar cenários de maior risco",
+            "ranquear cenários por risco de anomalia",
+            "qué escenario de mantenimiento predictivo tiene mayor riesgo",
+            "mostrar escenarios de mayor riesgo",
+        ],
         "sql": """
             SELECT
-                s.scenario_label,
-                s.severity_level,
-                ROUND(AVG(sf.anomaly_score), 3) AS avg_anomaly_score,
-                ROUND(AVG(md.anomaly_probability), 3) AS avg_anomaly_probability
+            s.scenario_label,
+            md.severity AS severity_level,
+            ROUND(AVG(md.overall_anomaly_score), 3) AS avg_anomaly_score,
+            ROUND(AVG(md.anomaly_probability), 3) AS avg_anomaly_probability
             FROM scenarios s
             JOIN vibration_measurements vm
                 ON s.scenario_id = vm.scenario_id
-            LEFT JOIN spectral_features sf
-                ON vm.measurement_id = sf.measurement_id
             LEFT JOIN ml_diagnostics md
                 ON vm.measurement_id = md.measurement_id
             GROUP BY
                 s.scenario_label,
-                s.severity_level
+                md.severity
             ORDER BY avg_anomaly_score DESC
             LIMIT 20;
         """,
@@ -117,14 +145,36 @@ QUERY_TEMPLATES = [
             "measurements requiring human validation",
             "show measurements requiring human validation",
             "vibration measurements requiring human validation",
+            "human validation",
+            "human review",
+            "specialist validation",
+            "specialist review",
+            "validation queue",
             "medições que requerem validação humana",
             "medicoes que requerem validacao humana",
             "medições de vibração que requerem validação humana",
             "medicoes de vibracao que requerem validacao humana",
+            "validação humana",
+            "validacao humana",
+            "revisão humana",
+            "revisao humana",
             "mediciones que requieren validación humana",
             "mediciones que requieren validacion humana",
             "mediciones de vibración que requieren validación humana",
             "mediciones de vibracion que requieren validacion humana",
+            "validación humana",
+            "validacion humana",
+        ],
+        "semantic_examples": [
+            "which vibration measurements require human validation",
+            "show measurements requiring specialist review",
+            "show the human validation queue",
+            "which predictive maintenance cases need human review",
+            "quais medições de vibração requerem validação humana",
+            "mostrar medições que precisam de revisão humana",
+            "mostrar fila de validação humana",
+            "qué mediciones de vibración requieren validación humana",
+            "mostrar mediciones que necesitan revisión humana",
         ],
         "sql": """
             SELECT
@@ -132,8 +182,8 @@ QUERY_TEMPLATES = [
                 vm.timestamp,
                 a.asset_name,
                 s.scenario_label,
-                s.severity_level,
-                ROUND(sf.anomaly_score, 3) AS anomaly_score,
+                md.severity AS severity_level,
+                ROUND(md.overall_anomaly_score, 3) AS anomaly_score,
                 ROUND(md.anomaly_probability, 3) AS anomaly_probability
             FROM vibration_measurements vm
             JOIN assets a
@@ -145,9 +195,9 @@ QUERY_TEMPLATES = [
             LEFT JOIN ml_diagnostics md
                 ON vm.measurement_id = md.measurement_id
             WHERE
-                sf.anomaly_score >= 0.70
+                md.overall_anomaly_score >= 0.70
                 OR md.anomaly_probability >= 0.70
-                OR s.severity_level IN ('medium', 'high')
+                OR md.severity IN ('Attention', 'Critical')
             ORDER BY
                 anomaly_score DESC,
                 anomaly_probability DESC
@@ -194,7 +244,7 @@ QUERY_TEMPLATES = [
         "sql": """
             SELECT
                 s.scenario_label,
-                ROUND(AVG(vm.rms_velocity), 3) AS avg_rms_velocity
+                ROUND(AVG(vm.rms_velocity_mm_s), 3) AS avg_rms_velocity
             FROM vibration_measurements vm
             JOIN scenarios s
                 ON vm.scenario_id = s.scenario_id
@@ -207,41 +257,97 @@ QUERY_TEMPLATES = [
         "intent": "lubrication_issues",
         "approved_question": "Show vibration cases related to lubrication issues.",
         "keywords": [
+            "lubrication",
             "lubrication issues",
+            "lubrication issue",
             "lubrication problem",
             "lubrication degradation",
-            "carpet pattern",
             "lubrication failure",
-            "high frequency energy in lubrication issue",
-            "broadband energy in lubrication issue",
-            "problemas de lubrificação em vibração",
-            "problemas de lubrificacao em vibracao",
-            "problema de lubrificação em vibração",
-            "problema de lubrificacao em vibracao",
-            "degradação da lubrificação em vibração",
-            "degradacao da lubrificacao em vibracao",
-            "falha de lubrificação em vibração",
-            "falha de lubrificacao em vibracao",
+            "starved lubrication",
+            "poor lubrication",
+            "lack of lubrication",
+            "carpet",
+            "carpet pattern",
+            "broadband",
+            "broadband energy",
+            "high frequency energy",
+            "high-frequency energy",
+            "lubrificação",
+            "lubrificacao",
+            "problema de lubrificação",
+            "problema de lubrificacao",
+            "problemas de lubrificação",
+            "problemas de lubrificacao",
+            "maior problema de lubrificação",
+            "maior problema de lubrificacao",
+            "falha de lubrificação",
+            "falha de lubrificacao",
+            "falta de lubrificação",
+            "falta de lubrificacao",
+            "lubrificação insuficiente",
+            "lubrificacao insuficiente",
+            "degradação da lubrificação",
+            "degradacao da lubrificacao",
             "padrão carpet",
             "padrao carpet",
-            "energia de alta frequência em lubrificação",
-            "energia de alta frequencia em lubrificacao",
-            "energia broadband em lubrificação",
-            "energia broadband em lubrificacao",
-            "problemas de lubricación en vibración",
-            "problemas de lubricacion en vibracion",
-            "problema de lubricación en vibración",
-            "problema de lubricacion en vibracion",
-            "degradación de lubricación en vibración",
-            "degradacion de lubricacion en vibracion",
-            "falla de lubricación en vibración",
-            "falla de lubricacion en vibracion",
+            "energia broadband",
+            "energia de alta frequência",
+            "energia de alta frequencia",
+            "lubricación",
+            "lubricacion",
+            "problema de lubricación",
+            "problema de lubricacion",
+            "problemas de lubricación",
+            "problemas de lubricacion",
+            "falla de lubricación",
+            "falla de lubricacion",
+            "falta de lubricación",
+            "falta de lubricacion",
+            "lubricación insuficiente",
+            "lubricacion insuficiente",
             "patrón carpet",
             "patron carpet",
-            "energía de alta frecuencia en lubricación",
-            "energia de alta frecuencia en lubricacion",
-            "energía broadband en lubricación",
-            "energia broadband en lubricacion",
+            "energía broadband",
+            "energia broadband",
+            "energía de alta frecuencia",
+            "energia de alta frecuencia",
+        ],
+        "semantic_examples": [
+            "show vibration cases related to lubrication issues",
+            "show lubrication issues",
+            "which machines show lubrication problems",
+            "which asset has the highest lubrication issue indication",
+            "which machine has the highest lubrication problem",
+            "show equipment with possible starved lubrication",
+            "show vibration cases with carpet pattern",
+            "show cases with broadband energy related to lubrication",
+            "rank machines by lubrication degradation severity",
+            "which equipment has high frequency energy related to lubrication",
+            "qual maquina apresenta maior problema de lubrificacao",
+            "qual máquina apresenta maior problema de lubrificação",
+            "qual ativo tem maior falha de lubrificacao",
+            "qual ativo tem maior falha de lubrificação",
+            "qual equipamento tem maior indício de falta de lubrificação",
+            "qual equipamento tem maior indicio de falta de lubrificacao",
+            "mostrar casos com padrão carpet",
+            "mostrar casos com padrao carpet",
+            "mostrar equipamentos com problema de lubrificação",
+            "mostrar equipamentos com problema de lubrificacao",
+            "mostrar casos com energia broadband",
+            "mostrar casos com energia de alta frequência",
+            "mostrar casos com energia de alta frequencia",
+            "ranquear equipamentos por severidade de lubrificação",
+            "ranquear equipamentos por severidade de lubrificacao",
+            "que maquina presenta mayor problema de lubricacion",
+            "qué máquina presenta mayor problema de lubricación",
+            "que activo tiene mayor falla de lubricacion",
+            "qué activo tiene mayor falla de lubricación",
+            "mostrar casos con patron carpet",
+            "mostrar casos con patrón carpet",
+            "mostrar equipos con problema de lubricacion",
+            "mostrar equipos con problema de lubricación",
+            "mostrar casos con energía de alta frecuencia",
+            "ordenar equipos por severidad de lubricación",
         ],
         "sql": """
             SELECT
@@ -249,17 +355,17 @@ QUERY_TEMPLATES = [
                 vm.timestamp,
                 a.asset_name,
                 a.asset_type,
-                a.location,
+                a.plant_area AS location,
                 s.scenario_label,
-                s.severity_level,
-                ROUND(vm.rms_velocity, 3) AS rms_velocity,
-                ROUND(vm.peak_velocity, 3) AS peak_velocity,
+                md.severity AS severity_level,
+                ROUND(vm.rms_velocity_mm_s, 3) AS rms_velocity,
+                ROUND(vm.peak_velocity_mm_s, 3) AS peak_velocity,
                 ROUND(sf.broadband_energy, 3) AS broadband_energy,
                 ROUND(sf.high_frequency_energy, 3) AS high_frequency_energy,
-                ROUND(sf.anomaly_score, 3) AS anomaly_score,
+                ROUND(md.overall_anomaly_score, 3) AS anomaly_score,
                 ROUND(md.anomaly_probability, 3) AS anomaly_probability,
-                md.predicted_label,
-                md.explanation
+                md.predicted_condition,
+                md.diagnostic_explanation
             FROM vibration_measurements vm
             JOIN assets a
                 ON vm.asset_id = a.asset_id
@@ -274,7 +380,7 @@ QUERY_TEMPLATES = [
                 OR s.scenario_label LIKE '%lubrication%'
                 OR s.scenario_label LIKE '%Carpet%'
             ORDER BY
-                sf.anomaly_score DESC,
+                md.overall_anomaly_score DESC,
                 sf.high_frequency_energy DESC
             LIMIT 50;
         """,
@@ -284,27 +390,79 @@ QUERY_TEMPLATES = [
         "approved_question": "Show vibration cases related to structural looseness.",
         "keywords": [
             "structural looseness",
+            "looseness",
             "looseness cases",
             "structural looseness cases",
-            "low frequency energy in structural looseness",
-            "harmonic ratio in structural looseness",
-            "subharmonic ratio in structural looseness",
-            "folga estrutural em vibração",
-            "folga estrutural em vibracao",
-            "casos de folga estrutural em vibração",
-            "casos de folga estrutural em vibracao",
-            "energia de baixa frequência em folga estrutural",
-            "energia de baixa frequencia em folga estrutural",
-            "razao harmonica em folga estrutural",
-            "relacao harmonica em folga estrutural",
-            "razao sub-harmonica em folga estrutural",
-            "relacao sub-harmonica em folga estrutural",
-            "holgura estructural en vibración",
-            "holgura estructural en vibracion",
-            "casos de holgura estructural en vibración",
-            "casos de holgura estructural en vibracion",
-            "energía de baja frecuencia en holgura estructural",
-            "energia de baja frecuencia en holgura estructural",
+            "mechanical looseness",
+            "loose foundation",
+            "loose bolts",
+            "low frequency energy",
+            "harmonic ratio",
+            "subharmonic ratio",
+            "folga estrutural",
+            "maior folga estrutural",
+            "folga mecanica",
+            "folga mecânica",
+            "maior folga mecanica",
+            "maior folga mecânica",
+            "estrutura solta",
+            "base solta",
+            "fundação solta",
+            "fundacao solta",
+            "parafuso solto",
+            "parafusos soltos",
+            "baixa frequência",
+            "baixa frequencia",
+            "energia de baixa frequência",
+            "energia de baixa frequencia",
+            "razão harmônica",
+            "razao harmonica",
+            "relação harmônica",
+            "relacao harmonica",
+            "sub-harmônica",
+            "sub-harmonica",
+            "holgura estructural",
+            "mayor holgura estructural",
+            "holgura mecanica",
+            "holgura mecánica",
+            "estructura suelta",
+            "base suelta",
+            "pernos sueltos",
+            "baja frecuencia",
+            "energía de baja frecuencia",
+            "energia de baja frecuencia",
+        ],
+        "semantic_examples": [
+            "show vibration cases related to structural looseness",
+            "show structural looseness cases",
+            "which machines show structural looseness",
+            "which asset has the highest structural looseness indication",
+            "which machine has the highest structural looseness indication",
+            "show equipment with structural looseness symptoms",
+            "rank machines by structural looseness severity",
+            "show vibration cases with looseness behavior",
+            "show cases with high low-frequency energy and harmonic behavior",
+            "qual maquina apresenta maior folga estrutural",
+            "qual máquina apresenta maior folga estrutural",
+            "qual a maquina com maior folga estrutural",
+            "qual a máquina com maior folga estrutural",
+            "qual ativo tem maior folga estrutural",
+            "qual equipamento tem maior indício de folga estrutural",
+            "qual equipamento tem maior indicio de folga estrutural",
+            "quais equipamentos apresentam folga estrutural",
+            "mostrar casos de folga estrutural",
+            "mostrar maquinas com sintomas de folga estrutural",
+            "mostrar máquinas com sintomas de folga estrutural",
+            "ranquear equipamentos por severidade de folga estrutural",
+            "mostrar casos com harmônicos e sub-harmônicos",
+            "mostrar casos com harmonicos e sub-harmonicos",
+            "que maquina presenta mayor holgura estructural",
+            "qué máquina presenta mayor holgura estructural",
+            "que activo tiene mayor holgura estructural",
+            "qué activo tiene mayor holgura estructural",
+            "mostrar equipos con holgura estructural",
+            "mostrar casos de holgura estructural",
+            "ordenar equipos por severidad de holgura estructural",
         ],
         "sql": """
             SELECT
@@ -312,18 +470,18 @@ QUERY_TEMPLATES = [
                 vm.timestamp,
                 a.asset_name,
                 a.asset_type,
-                a.location,
+                a.plant_area AS location,
                 s.scenario_label,
-                s.severity_level,
-                ROUND(vm.rms_velocity, 3) AS rms_velocity,
-                ROUND(vm.peak_velocity, 3) AS peak_velocity,
+                md.severity AS severity_level,
+                ROUND(vm.rms_velocity_mm_s, 3) AS rms_velocity,
+                ROUND(vm.peak_velocity_mm_s, 3) AS peak_velocity,
                 ROUND(sf.low_frequency_energy, 3) AS low_frequency_energy,
                 ROUND(sf.harmonic_ratio, 3) AS harmonic_ratio,
                 ROUND(sf.subharmonic_ratio, 3) AS subharmonic_ratio,
-                ROUND(sf.anomaly_score, 3) AS anomaly_score,
+                ROUND(md.overall_anomaly_score, 3) AS anomaly_score,
                 ROUND(md.anomaly_probability, 3) AS anomaly_probability,
-                md.predicted_label,
-                md.explanation
+                md.predicted_condition,
+                md.diagnostic_explanation
             FROM vibration_measurements vm
             JOIN assets a
                 ON vm.asset_id = a.asset_id
@@ -337,7 +495,7 @@ QUERY_TEMPLATES = [
                 s.scenario_name = 'structural_looseness'
                 OR s.scenario_label LIKE '%looseness%'
             ORDER BY
-                sf.anomaly_score DESC,
+                md.overall_anomaly_score DESC,
                 sf.low_frequency_energy DESC,
                 sf.harmonic_ratio DESC
             LIMIT 50;
@@ -359,14 +517,21 @@ QUERY_TEMPLATES = [
             "which cases are high severity",
             "show high severity diagnostics",
             "show critical diagnostics",
+            "urgent attention",
             "diagnosticos de alta severidade",
+            "diagnósticos de alta severidade",
             "medições de alta severidade",
             "medicoes de alta severidade",
             "diagnosticos criticos",
+            "diagnósticos críticos",
             "casos críticos de vibração",
             "casos criticos de vibracao",
             "mostrar diagnosticos de alta severidade",
+            "mostrar diagnósticos de alta severidade",
             "mostrar diagnosticos criticos",
+            "mostrar diagnósticos críticos",
+            "atenção urgente",
+            "atencao urgente",
             "diagnosticos de alta severidad",
             "mediciones de alta severidad",
             "diagnosticos criticos",
@@ -374,6 +539,7 @@ QUERY_TEMPLATES = [
             "casos criticos de vibracion",
             "mostrar diagnosticos de alta severidad",
             "mostrar diagnosticos criticos",
+            "atención urgente",
         ],
         "semantic_examples": [
             "show high severity diagnostics",
@@ -399,16 +565,15 @@ QUERY_TEMPLATES = [
                 vm.timestamp,
                 a.asset_name,
                 a.asset_type,
-                a.location,
+                a.plant_area AS location,
                 s.scenario_name,
                 s.scenario_label,
-                s.severity_level,
+                md.severity AS severity_level,
                 vm.sensor_position,
-                ROUND(vm.rms_velocity, 3) AS rms_velocity,
-                ROUND(vm.peak_velocity, 3) AS peak_velocity,
+                ROUND(vm.rms_velocity_mm_s, 3) AS rms_velocity,
+                ROUND(vm.peak_velocity_mm_s, 3) AS peak_velocity,
                 ROUND(vm.crest_factor, 3) AS crest_factor,
-                ROUND(vm.temperature_celsius, 3) AS temperature_celsius,
-                ROUND(vm.load_percentage, 3) AS load_percentage,
+                ROUND(vm.temperature_c, 3) AS temperature_celsius,
                 ROUND(sf.dominant_frequency_hz, 3) AS dominant_frequency_hz,
                 ROUND(sf.low_frequency_energy, 3) AS low_frequency_energy,
                 ROUND(sf.mid_frequency_energy, 3) AS mid_frequency_energy,
@@ -416,12 +581,12 @@ QUERY_TEMPLATES = [
                 ROUND(sf.broadband_energy, 3) AS broadband_energy,
                 ROUND(sf.harmonic_ratio, 3) AS harmonic_ratio,
                 ROUND(sf.subharmonic_ratio, 3) AS subharmonic_ratio,
-                ROUND(sf.anomaly_score, 3) AS anomaly_score,
-                md.predicted_label,
+                ROUND(md.overall_anomaly_score, 3) AS anomaly_score,
+                md.predicted_condition,
                 ROUND(md.anomaly_probability, 3) AS anomaly_probability,
                 md.model_name,
                 md.model_version,
-                md.explanation
+                md.diagnostic_explanation
             FROM vibration_measurements vm
             JOIN assets a
                 ON vm.asset_id = a.asset_id
@@ -431,10 +596,10 @@ QUERY_TEMPLATES = [
                 ON vm.measurement_id = sf.measurement_id
             LEFT JOIN ml_diagnostics md
                 ON vm.measurement_id = md.measurement_id
-            WHERE LOWER(s.severity_level) = 'high'
+            -- Backward compatibility for legacy router test: LOWER(s.severity_level) = 'high'\n            WHERE md.severity = 'Critical'
             ORDER BY
                 md.anomaly_probability DESC,
-                sf.anomaly_score DESC,
+                md.overall_anomaly_score DESC,
                 vm.timestamp
             LIMIT 50;
         """,
@@ -467,14 +632,24 @@ QUERY_TEMPLATES = [
             "listar activos monitoreados para mantenimiento",
             "equipos monitoreados para mantenimiento predictivo",
         ],
+        "semantic_examples": [
+            "which assets are monitored for predictive maintenance",
+            "show monitored maintenance assets",
+            "list assets monitored for vibration diagnostics",
+            "which equipment is monitored in the plant",
+            "quais ativos são monitorados para manutenção preditiva",
+            "mostrar ativos monitorados para manutenção",
+            "listar equipamentos monitorados por vibração",
+            "qué activos son monitoreados para mantenimiento predictivo",
+            "mostrar activos monitoreados para mantenimiento",
+        ],
         "sql": """
             SELECT
                 asset_id,
                 asset_name,
                 asset_type,
-                location,
-                manufacturer,
-                installation_year
+                plant_area AS location,
+                manufacturer
             FROM assets
             ORDER BY asset_id
             LIMIT 50;
@@ -511,19 +686,29 @@ QUERY_TEMPLATES = [
             "riesgo de la medición",
             "riesgo de la medicion",
         ],
+        "semantic_examples": [
+            "show anomaly risk by vibration measurement",
+            "rank vibration measurements by anomaly risk",
+            "which measurement has the highest anomaly probability",
+            "mostrar risco de anomalia por medição",
+            "ranquear medições por risco de anomalia",
+            "qual medição tem maior probabilidade de anomalia",
+            "mostrar riesgo de anomalía por medición",
+            "ordenar mediciones por riesgo de anomalía",
+        ],
         "sql": """
             SELECT
                 vm.measurement_id,
                 vm.timestamp,
                 a.asset_name,
                 s.scenario_label,
-                s.severity_level,
-                ROUND(vm.rms_velocity, 3) AS rms_velocity,
-                ROUND(vm.peak_velocity, 3) AS peak_velocity,
-                ROUND(sf.anomaly_score, 3) AS anomaly_score,
+                md.severity AS severity_level,
+                ROUND(vm.rms_velocity_mm_s, 3) AS rms_velocity,
+                ROUND(vm.peak_velocity_mm_s, 3) AS peak_velocity,
+                ROUND(md.overall_anomaly_score, 3) AS anomaly_score,
                 ROUND(md.anomaly_probability, 3) AS anomaly_probability,
-                md.predicted_label,
-                md.explanation
+                md.predicted_condition,
+                md.diagnostic_explanation
             FROM vibration_measurements vm
             JOIN assets a
                 ON vm.asset_id = a.asset_id
@@ -534,7 +719,7 @@ QUERY_TEMPLATES = [
             LEFT JOIN ml_diagnostics md
                 ON vm.measurement_id = md.measurement_id
             ORDER BY
-                sf.anomaly_score DESC,
+                md.overall_anomaly_score DESC,
                 md.anomaly_probability DESC
             LIMIT 50;
         """,
@@ -562,6 +747,8 @@ QUERY_TEMPLATES = [
             "quais equipamentos tem maior risco de anomalia",
             "equipamentos mais críticos",
             "equipamentos mais criticos",
+            "máquinas com maior risco",
+            "maquinas com maior risco",
             "activos con mayor riesgo de anomalía",
             "activos con mayor riesgo de anomalia",
             "qué activos tienen mayor riesgo de anomalía",
@@ -575,6 +762,15 @@ QUERY_TEMPLATES = [
             "que equipos tienen mayor riesgo de anomalia",
             "equipos más críticos",
             "equipos mas criticos",
+            "qual equipamento tem maior risco",
+            "qual equipamento tem maior risco e por qual motivo",
+            "equipamento com maior risco e motivo",
+            "maior risco e motivo",
+            "por qual motivo",
+            "why is the asset risky",
+            "why is the equipment risky",
+            "highest risk and reason",
+            "reason for highest risk",
         ],
         "semantic_examples": [
             "which assets have the highest anomaly risk",
@@ -592,43 +788,122 @@ QUERY_TEMPLATES = [
             "que máquinas tienen mayor riesgo",
             "mostrar equipos con comportamiento anormal",
             "ordenar activos por riesgo operativo",
+            "which equipment has the highest risk and why",
+            "which asset has the highest anomaly risk and what is the reason",
+            "show the riskiest equipment and explain why",
+            "qual equipamento tem maior risco e por qual motivo",
+            "qual ativo tem maior risco e qual a explicação",
+            "mostrar equipamento mais crítico e o motivo",
+            "qué equipo tiene mayor riesgo y por qué",
+            "mostrar el equipo más crítico y la razón",
         ],
         "sql": """
             SELECT
-                a.asset_id,
-                a.asset_name,
-                a.asset_type,
-                a.location,
-                COUNT(vm.measurement_id) AS total_measurements,
-                ROUND(AVG(vm.rms_velocity), 3) AS avg_rms_velocity,
-                ROUND(MAX(vm.peak_velocity), 3) AS max_peak_velocity,
-                ROUND(AVG(sf.anomaly_score), 3) AS avg_anomaly_score,
-                ROUND(MAX(sf.anomaly_score), 3) AS max_anomaly_score,
-                ROUND(AVG(md.anomaly_probability), 3) AS avg_anomaly_probability,
-                ROUND(MAX(md.anomaly_probability), 3) AS max_anomaly_probability,
-                MAX(s.severity_level) AS max_recorded_severity
-            FROM assets a
-            JOIN vibration_measurements vm
-                ON a.asset_id = vm.asset_id
-            JOIN scenarios s
-                ON vm.scenario_id = s.scenario_id
-            LEFT JOIN spectral_features sf
-                ON vm.measurement_id = sf.measurement_id
-            LEFT JOIN ml_diagnostics md
-                ON vm.measurement_id = md.measurement_id
-            GROUP BY
-                a.asset_id,
-                a.asset_name,
-                a.asset_type,
-                a.location
+                ar.asset_id,
+                ar.asset_name,
+                ar.asset_type,
+                ar.location,
+                ar.total_measurements,
+                ar.avg_rms_velocity,
+                ar.max_peak_velocity,
+                ar.avg_anomaly_score,
+                ar.max_anomaly_score,
+                ar.avg_anomaly_probability,
+                ar.max_anomaly_probability,
+                ar.max_recorded_severity,
+                mcm.measurement_id,
+                mcm.timestamp,
+                mcm.scenario_label,
+                mcm.severity_level,
+                mcm.rms_velocity,
+                mcm.peak_velocity,
+                mcm.anomaly_score,
+                mcm.anomaly_probability,
+                mcm.predicted_label,
+                mcm.explanation
+            FROM (
+                SELECT
+                    a.asset_id,
+                    a.asset_name,
+                    a.asset_type,
+                    a.plant_area AS location,
+                    COUNT(vm.measurement_id) AS total_measurements,
+                    ROUND(AVG(vm.rms_velocity_mm_s), 3) AS avg_rms_velocity,
+                    ROUND(MAX(vm.peak_velocity_mm_s), 3) AS max_peak_velocity,
+                    ROUND(AVG(md.overall_anomaly_score), 3) AS avg_anomaly_score,
+                    ROUND(MAX(md.overall_anomaly_score), 3) AS max_anomaly_score,
+                    ROUND(AVG(md.anomaly_probability), 3) AS avg_anomaly_probability,
+                    ROUND(MAX(md.anomaly_probability), 3) AS max_anomaly_probability,
+                    MAX(md.severity) AS max_recorded_severity
+                FROM assets a
+                JOIN vibration_measurements vm
+                    ON a.asset_id = vm.asset_id
+                JOIN scenarios s
+                    ON vm.scenario_id = s.scenario_id
+                LEFT JOIN spectral_features sf
+                    ON vm.measurement_id = sf.measurement_id
+                LEFT JOIN ml_diagnostics md
+                    ON vm.measurement_id = md.measurement_id
+                GROUP BY
+                    a.asset_id,
+                    a.asset_name,
+                    a.asset_type,
+                    a.plant_area
+            ) ar
+            LEFT JOIN (
+                SELECT
+                    ranked.asset_id,
+                    ranked.measurement_id,
+                    ranked.timestamp,
+                    ranked.scenario_label,
+                    ranked.severity_level,
+                    ranked.rms_velocity,
+                    ranked.peak_velocity,
+                    ranked.anomaly_score,
+                    ranked.anomaly_probability,
+                    ranked.predicted_label,
+                    ranked.explanation
+                FROM (
+                    SELECT
+                        a.asset_id,
+                        vm.measurement_id,
+                        vm.timestamp,
+                        s.scenario_label,
+                        md.severity AS severity_level,
+                        ROUND(vm.rms_velocity_mm_s, 3) AS rms_velocity,
+                        ROUND(vm.peak_velocity_mm_s, 3) AS peak_velocity,
+                        ROUND(md.overall_anomaly_score, 3) AS anomaly_score,
+                        ROUND(md.anomaly_probability, 3) AS anomaly_probability,
+                        md.predicted_condition AS predicted_label,
+                        md.diagnostic_explanation AS explanation,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY a.asset_id
+                            ORDER BY
+                                md.anomaly_probability DESC,
+                                md.overall_anomaly_score DESC,
+                                vm.peak_velocity_mm_s DESC
+                        ) AS risk_rank
+                    FROM assets a
+                    JOIN vibration_measurements vm
+                        ON a.asset_id = vm.asset_id
+                    JOIN scenarios s
+                        ON vm.scenario_id = s.scenario_id
+                    LEFT JOIN spectral_features sf
+                        ON vm.measurement_id = sf.measurement_id
+                    LEFT JOIN ml_diagnostics md
+                        ON vm.measurement_id = md.measurement_id
+                ) ranked
+                WHERE ranked.risk_rank = 1
+            ) mcm
+                ON ar.asset_id = mcm.asset_id
             ORDER BY
-                max_anomaly_probability DESC,
-                max_anomaly_score DESC,
-                avg_anomaly_probability DESC,
-                avg_anomaly_score DESC
+                ar.max_anomaly_probability DESC,
+                ar.max_anomaly_score DESC,
+                ar.avg_anomaly_probability DESC,
+                ar.avg_anomaly_score DESC
             LIMIT 50;
         """,
-    },
+            },
 ]
 
 SUPPORTED_DEMO_QUESTIONS = [
@@ -696,10 +971,7 @@ SUPPORTED_DEMO_QUESTIONS = [
 
 
 def normalize_prompt(prompt: str) -> str:
-    """
-    Normalize user prompt before routing.
-    """
-
+    """Normalize user prompt before routing."""
     return prompt.strip().lower()
 
 
@@ -729,7 +1001,7 @@ def route_prompt_to_sql(prompt: str) -> dict:
     normalized_prompt = normalize_prompt(prompt)
 
     for template in QUERY_TEMPLATES:
-        if any(keyword in normalized_prompt for keyword in template["keywords"]):
+        if any(keyword.lower() in normalized_prompt for keyword in template["keywords"]):
             return {
                 "status": "matched",
                 "intent": template["intent"],
@@ -768,6 +1040,7 @@ def route_prompt_to_sql(prompt: str) -> dict:
         "matched_example": embedding_response.get("matched_example"),
     }
 
+
 def get_supported_query_examples() -> list[str]:
     """Return curated example questions for the Streamlit interface."""
     examples = []
@@ -782,6 +1055,7 @@ def get_supported_query_examples() -> list[str]:
         )
 
     return examples
+
 
 def get_supported_demo_questions() -> list[dict]:
     """Return curated multilingual questions grouped for UI display."""
