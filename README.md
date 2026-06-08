@@ -1,611 +1,475 @@
-# Hybrid AI for Predictive Maintenance
+# Hybrid AI Predictive Maintenance
 
-A practical learning project that explores how Machine Learning, deterministic agents, semantic query routing, safe Text-to-SQL, RAG and human validation can work together in an industrial predictive maintenance context.
+A Streamlit lab for industrial predictive maintenance that combines raw vibration signals, physics-informed anomaly scoring, and a controlled **Semantic AI** query layer.
 
-The project focuses on vibration analysis from rotating equipment and demonstrates how industrial data can be queried, diagnosed, explained and converted into maintenance recommendations.
+This project was motivated by a practical discussion on **ML vs LLMs in manufacturing**: in industrial environments, decisions need to be traceable, auditable, cost-aware, and safe. The goal here is not to use a generative model as the source of operational truth. Instead, the app demonstrates how far a controlled semantic layer can go using embeddings, cosine similarity, keyword routing, approved SQL templates, and SQL validation, without depending on a paid GenAI API.
 
-## Project Overview
-
-This project demonstrates a hybrid AI architecture for industrial predictive maintenance.
-
-The use case is based on vibration analysis from rotating equipment. Historical vibration measurements, spectral features, ML diagnostics and human feedback records are stored in a pre-populated SQLite database and consumed by a Streamlit application.
-
-The project starts after data ingestion. Its purpose is to show how industrial data can be explored, queried, compared, diagnosed, explained and transformed into operational recommendations.
-
-The current implementation already includes:
-
-- SQLite data layer
-- Streamlit scenario explorer
-- Scenario summaries
-- Rule-based maintenance recommendations
-- Human validation workflow
-- Safe mock Text-to-SQL workflow
-- Domain Guard for prompt validation
-- Semantic Query Router with predefined SQL templates
-- SQL Guard for read-only query validation
-- Simple deterministic maintenance agent
-- Unit tests for guardrails and routing logic
-
-Future versions will expand the project with real LLM integration, embedding-based retrieval, technical RAG and more advanced agentic orchestration.
-
-## Core Idea
-
-The project follows a clear separation of responsibilities:
-
-- Machine Learning supports anomaly detection and diagnostic classification.
-- Deterministic logic handles known, repetitive and safety-sensitive workflows.
-- Semantic routing maps common questions to safe SQL templates.
-- LLMs are reserved for cases where natural language reasoning is truly needed.
-- Agents coordinate tools, route user intentions and manage analytical workflows.
-- RAG will retrieve curated technical references to support maintenance recommendations.
-- Humans validate operational decisions before corrective actions are assumed.
-
-The main principle is simple:
+The guiding idea is:
 
 ```text
-Do not use LLMs for everything.
-Use deterministic and safe components first.
-Use LLMs only when they add real value.
-````
+Physics-informed diagnostics decide.
+Semantic AI routes and retrieves.
+Deterministic rules recommend.
+Humans remain responsible for operational validation.
+```
 
-## Industrial Scenario
+> Note: this version does **not** implement an autonomous agent and does **not** implement a human-validation workflow in the application. Those concepts are part of the broader industrial AI positioning and future roadmap, but the current app focuses on condition monitoring, deterministic recommendations, and safe semantic querying.
 
-The project simulates three vibration conditions:
+---
 
-1. Normal operation
-2. Carpet pattern associated with possible lubrication issues
-3. Structural looseness
+## Live App
 
-The SQLite database is pre-populated with historical measurements, spectral features and ML diagnostic outputs for each condition.
-
-The focus is not real-time sensor generation. The focus is the analytical layer that consumes industrial data and turns it into insight, diagnosis and recommendation.
-
-## Learning Goals
-
-This project is designed as a practical learning path for applied industrial AI.
-
-The main learning goals are:
-
-1. Build a structured industrial data foundation using SQLite
-2. Explore vibration data and spectral features
-3. Summarize industrial scenarios from historical data
-4. Apply diagnostic logic for anomaly and fault interpretation
-5. Use controlled Text-to-SQL interaction
-6. Add guardrails before any LLM-based workflow
-7. Build agents that coordinate analytical tools
-8. Create a technical RAG layer from curated maintenance references
-9. Generate prescriptive recommendations with human validation
-10. Discuss governance, traceability and operational risk in industrial AI systems
-
-## Current Architecture
+Add your deployed Streamlit URL here after publication:
 
 ```text
-SQLite Database
-    ↓
-Streamlit App
-    ↓
-Scenario Selection
-    ↓
-Diagnostic Data Exploration
-    ↓
-Scenario Summary
-    ↓
-Rule-Based Recommendations
-    ↓
-Human Validation
+https://your-streamlit-app-url
 ```
 
-The current application also includes a controlled database assistant:
+---
+
+## Repository
 
 ```text
-User Prompt
-    ↓
-Domain Guard
-    ↓
-Semantic Query Router
-    ↓
-Predefined SQL Template or Mock Text-to-SQL
-    ↓
-SQL Guard
-    ↓
-SQLite Database
-    ↓
-Streamlit Result
+https://github.com/marioandrededeus/hybrid-ai-predictive-maintenance
 ```
 
-A simple deterministic maintenance agent is also available:
+---
+
+## Why this project exists
+
+A recent reflection on manufacturing AI can be summarized as:
 
 ```text
-Scenario ID
-    ↓
-Maintenance Agent
-    ↓
-Scenario Retrieval
-    ↓
-Measurement Retrieval
-    ↓
-Scenario Summary
-    ↓
-Rule-Based Recommendations
-    ↓
-Agent Reasoning
+ML decides -> LLM explains -> Agent coordinates -> Human validates
 ```
 
-## Repository Structure
+However, in a public demo or cost-sensitive industrial context, using an external generative model for every interaction is not always necessary or desirable.
+
+This project adapts that philosophy into a controlled, zero-cost semantic architecture:
+
+- the diagnostic core is based on vibration signals and physics-informed features;
+- the query experience uses semantic similarity instead of free-form LLM generation;
+- the database is accessed only through approved SQL templates;
+- SQL execution is protected by a SQL Guard;
+- recommendations are deterministic and traceable;
+- generative LLM usage is treated as an optional future layer, not a dependency.
+
+This makes the app especially relevant for industrial scenarios where **cost, safety, auditability, and scope control** are design constraints.
+
+---
+
+## What the app demonstrates
+
+The app has two main flows.
+
+### 1. Monitoring
+
+The Monitoring view shows the latest equipment condition up to a selected collection date.
+
+Pipeline:
 
 ```text
-app/
-  Streamlit application
-
-src/database/
-  SQLite creation, seeding and query utilities
-
-src/simulation/
-  Synthetic vibration signal generation used to create the pre-populated database
-
-src/features/
-  Time-domain and frequency-domain feature extraction
-
-src/analysis/
-  Scenario summary and analytical helpers
-
-src/ml/
-  ML model training and prediction layer
-
-src/llm/
-  Domain guard, semantic query router, SQL guard and Text-to-SQL utilities
-
-src/agents/
-  Agent routing, tool calling and orchestration
-
-src/rag/
-  Document ingestion, embeddings and retrieval
-
-src/prescription/
-  Maintenance recommendation logic
-
-src/monitoring/
-  Human feedback, validation records and traceability
-
-knowledge_base/
-  Curated technical references for the future RAG layer
-
-notebooks/
-  Learning notebooks for each project stage
-
-docs/
-  Architecture notes and technical documentation
-
-tests/
-  Unit tests for guardrails, routing and safety layers
+selected collection date
+-> latest measurement per equipment
+-> raw vibration signal
+-> time-domain metrics
+-> FFT / PSD visualization
+-> spectral features
+-> deterministic anomaly score
+-> severity classification
+-> rule-based action plan
 ```
 
-## Hybrid Query Flow
+The current diagnostic layer is not a trained ML model yet. It is a **physics-informed deterministic baseline** derived from vibration features.
 
-The **Ask the Database** section uses a controlled hybrid query flow designed to avoid unnecessary LLM usage and keep database access safe.
+The app currently simulates and stores:
 
-Instead of sending every user question directly to a language model, the system first applies deterministic validation and routing layers:
+- raw vibration samples;
+- RMS and peak velocity;
+- FFT-derived features;
+- broadband energy;
+- low, mid, and high-frequency energy;
+- harmonic and subharmonic indicators;
+- anomaly scores;
+- predicted condition;
+- severity level;
+- deterministic recommended action.
+
+### 2. Semantic AI Query
+
+The Semantic AI Query view allows users to ask maintenance-related questions in natural language-like form, but without giving a generative model unrestricted control.
+
+Pipeline:
 
 ```text
-User Prompt
-    ↓
-Domain Guard
-    ↓
-Semantic Query Router
-    ↓
-Predefined SQL Template or Mock Text-to-SQL
-    ↓
-SQL Guard
-    ↓
-SQLite Database
-    ↓
-Streamlit Result
+user question
+-> Domain Guard
+-> Keyword Router
+-> Embedding Router
+-> cosine similarity
+-> approved SQL template
+-> SQL Guard
+-> SQLite query
+-> equipment cards
 ```
 
-This flow includes:
+This design creates a guided natural-language experience with:
 
-* **Domain Guard**: blocks prompts outside the industrial predictive maintenance context.
-* **Semantic Query Router**: maps known questions to predefined safe SQL templates.
-* **Mock Text-to-SQL fallback**: handles valid domain questions that do not match a predefined template yet.
-* **SQL Guard**: allows only safe read-only SQL queries and blocks destructive operations.
-* **Execution path transparency**: shows whether the answer came from the router, fallback or was blocked.
+- no external LLM API cost;
+- no private API key exposure;
+- no arbitrary SQL generation;
+- clear query execution trace;
+- similarity scores for transparency;
+- deterministic database access.
 
-This design supports a practical hybrid AI approach: use deterministic logic when possible, reserve LLM usage for cases where it is truly needed, and keep the system explainable, safe and cost-aware.
+---
 
-More details are available in:
+## Semantic AI instead of GenAI dependency
+
+The project deliberately uses **Semantic AI** rather than a paid generative dependency in the current version.
+
+Here, Semantic AI means:
 
 ```text
-docs/hybrid_query_flow.md
+embeddings + cosine similarity + domain filters + approved templates + SQL safety
 ```
 
-## Supported Database Questions
+This is more limited than a full LLM-based assistant, but that limitation is intentional. The trade-off is valuable for a public industrial demo:
 
-The semantic router currently supports questions such as:
+| Aspect | Semantic AI approach in this app |
+|---|---|
+| Cost | No external GenAI inference cost |
+| Safety | Only approved SQL templates are executed |
+| Scope | Questions must be related to predictive maintenance |
+| Auditability | Routes, templates, and similarity scores are visible |
+| Flexibility | More limited than free-form LLM generation |
+| Industrial fit | Strong for controlled exploration of operational data |
+
+This is not positioned as a replacement for LLMs. It is a pragmatic baseline showing that many useful industrial query experiences can be built with controlled semantic routing before introducing generative models.
+
+---
+
+## Relation with the previous condition monitoring project
+
+This repository was motivated by a previous vibration analysis project:
 
 ```text
-Show average anomaly score by scenario
+predictive-maintenance-vibration-lab
 ```
+
+That earlier project explored vibration fault patterns such as:
+
+- normal operation;
+- carpet patterns associated with possible lubrication issues;
+- structural looseness patterns.
+
+The current project extends that idea into a broader application architecture:
 
 ```text
-Show average anomaly probability by scenario
+condition monitoring
++ raw signal storage
++ deterministic anomaly scoring
++ equipment cards
++ semantic database query
++ SQL safety
++ Streamlit deployment
 ```
+
+The objective is to move from a signal-analysis lab to a more complete industrial decision-support demo.
+
+---
+
+## Current diagnostic logic
+
+The anomaly score is calculated during the database seeding process from simulated raw vibration signals.
+
+Conceptual flow:
 
 ```text
-Which scenario has the highest risk?
+raw vibration signal
+-> time-domain metrics
+-> FFT / spectral features
+-> carpet_score
+-> looseness_score
+-> overall_anomaly_score
+-> anomaly_probability-like score
+-> predicted_condition
+-> severity
 ```
+
+The main scoring patterns are:
+
+### Carpet / lubrication pattern
+
+The app considers features such as:
+
+- broadband energy;
+- high-frequency energy;
+- spectral floor behavior;
+- PSD-style energy spread.
+
+This represents a simplified deterministic approximation of a carpet-like vibration pattern associated with possible lubrication degradation.
+
+### Structural looseness pattern
+
+The app considers features such as:
+
+- low-frequency energy;
+- harmonic ratio;
+- subharmonic ratio;
+- components around rotational frequencies such as 0.5x, 1x, 1.5x, 2x, and 3x.
+
+This represents a simplified deterministic approximation of structural looseness behavior.
+
+### Final anomaly score
+
+Conceptually:
 
 ```text
-Which measurements require human validation?
+overall_anomaly_score = max(carpet_score, looseness_score)
 ```
 
-```text
-Show average RMS velocity by scenario
-```
+The final severity is threshold-based.
 
-```text
-Show lubrication issues
-```
+Important clarification:
 
-```text
-Show structural looseness cases
-```
+> The current `anomaly_probability` should be interpreted as a normalized confidence-like score derived from deterministic rules, not as a calibrated probability from a trained classifier.
 
-```text
-Which assets are monitored?
-```
+---
 
-```text
-Show anomaly risk by measurement
-```
-
-Questions outside the project context are blocked before reaching the SQL layer.
-
-Example blocked prompt:
-
-```text
-Vibration level of Etna vulcan
-```
-
-Even though this prompt contains the word `vibration`, it is not related to industrial predictive maintenance.
-
-## Maintenance Agent
-
-The project includes a first deterministic maintenance agent.
-
-The current agent does not use a real LLM yet. It orchestrates existing project tools:
-
-* Retrieves the selected industrial scenario
-* Retrieves vibration measurements related to the scenario
-* Generates a technical scenario summary
-* Applies rule-based maintenance recommendation logic
-* Returns structured operational reasoning
-
-Current flow:
-
-```text
-Scenario ID
-    ↓
-Maintenance Agent
-    ↓
-Database Query
-    ↓
-Scenario Summary
-    ↓
-Rule-Based Recommendations
-    ↓
-Agent Reasoning
-```
-
-This creates the foundation for future agentic workflows involving ML tools, RAG retrieval and human validation.
-
-## Safety and Governance
-
-The project includes safety and governance principles from the beginning:
-
-* Prompts outside the industrial predictive maintenance domain are blocked.
-* Known database questions are routed to predefined SQL templates.
-* Only read-only SQL queries are allowed.
-* Unsafe SQL commands are blocked before execution.
-* Query execution path is displayed to the user.
-* Rule-based recommendations are transparent.
-* Recommendations requiring attention are flagged for human validation.
-* The system does not assume direct control over industrial equipment.
-
-Blocked SQL operations include:
-
-```text
-CREATE
-ALTER
-DROP
-DELETE
-UPDATE
-INSERT
-```
-
-## Testing
-
-The project includes unit tests for the main guardrail layers:
-
-* Domain Guard
-* Semantic Query Router
-* SQL Guard
-
-Run all tests with:
-
-```bash
-pytest
-```
-
-Example test coverage:
-
-```text
-Out-of-domain prompts are blocked
-Known prompts are routed to SQL templates
-Unknown but valid domain prompts fall back safely
-Unsafe SQL commands are blocked
-Safe SELECT queries are allowed
-```
-
-## Learning Path
-
-### Phase 0: Problem Framing and Architecture
-
-Define the industrial use case, the technical architecture and the learning path.
-
-Deliverables:
-
-* README
-* Architecture notes
-* Roadmap
-* Project folder structure
-
-### Phase 1: Industrial Data Foundation
-
-Create a pre-populated SQLite database with industrial vibration scenarios.
-
-Deliverables:
-
-* SQLite database
-* Asset table
-* Scenario table
-* Vibration measurements table
-* Spectral features table
-* ML diagnostics table
-* Human feedback table
-* Seed script
-
-### Phase 2: Streamlit Data Explorer
-
-Build an interface to select scenarios, inspect measurements and visualize trends.
-
-Deliverables:
-
-* Scenario selector
-* KPI cards
-* Measurement table
-* Feature summary
-* Diagnostic charts
-
-### Phase 3: Scenario Summary
-
-Generate technical summaries for each industrial scenario.
-
-Deliverables:
-
-* Scenario-level aggregation
-* Risk level summary
-* Technical interpretation helper
-
-### Phase 4: Rule-Based Recommendations
-
-Generate transparent maintenance recommendations based on diagnostic outputs.
-
-Deliverables:
-
-* Recommendation engine
-* Priority classification
-* Human validation flag
-
-### Phase 5: Human Validation
-
-Create a simple human-in-the-loop workflow.
-
-Deliverables:
-
-* Validation form
-* Specialist notes
-* Corrective action field
-* Human feedback history
-
-### Phase 6: Safe Database Assistant
-
-Allow users to query the SQLite database using natural language with guardrails.
-
-Deliverables:
-
-* Domain Guard
-* Semantic Query Router
-* SQL templates
-* Mock Text-to-SQL fallback
-* SQL Guard
-* Execution path transparency
-
-### Phase 7: Deterministic Maintenance Agent
-
-Create a simple agent that coordinates existing tools.
-
-Deliverables:
-
-* Agent orchestration function
-* Scenario retrieval
-* Measurement retrieval
-* Scenario summary
-* Recommendations
-* Agent reasoning
-
-### Phase 8: ML Diagnosis Expansion
-
-Expand the ML layer for anomaly detection and fault classification.
-
-Planned deliverables:
-
-* Training script
-* Saved model
-* Prediction function
-* Model evaluation
-* Risk level classification
-
-### Phase 9: Technical RAG
-
-Create a curated technical knowledge base for maintenance recommendations.
-
-Planned deliverables:
-
-* Document ingestion
-* Chunking
-* Embeddings
-* Vector database
-* Retriever function
-* Source-supported explanations
-
-### Phase 10: Real LLM and Agentic Workflow
-
-Introduce real LLM usage only after deterministic routing and safety layers.
-
-Planned deliverables:
-
-* LLM-based Text-to-SQL fallback
-* Tool-calling agent
-* RAG-supported recommendation generation
-* Action logs
-* Governance notes
-
-### Phase 11: Deployment and Governance
-
-Deploy the application and document limitations.
-
-Planned deliverables:
-
-* Streamlit deployment
-* Secrets management
-* Logging
-* README update
-* Technical limitations section
-
-## Example Use Cases
-
-The application is designed to support practical questions such as:
-
-```text
-Which scenario has the highest anomaly score?
-```
-
-```text
-Which measurements require human validation?
-```
-
-```text
-Is the selected scenario associated with lubrication degradation?
-```
-
-```text
-Which cases indicate structural looseness?
-```
-
-```text
-Which monitored assets are available in the database?
-```
-
-```text
-What maintenance recommendations are generated for high-risk measurements?
-```
-
-## Important Design Principles
-
-Each AI component has a specific role in the architecture.
-
-Machine Learning supports analytical diagnosis.
-
-Deterministic logic handles known and safety-sensitive workflows.
-
-Semantic routing avoids unnecessary LLM calls.
-
-LLMs support natural language interaction and explanation when deterministic logic is not enough.
-
-Agents coordinate the workflow and decide which tools should be called.
-
-RAG provides technical grounding for maintenance recommendations.
-
-Operational decisions remain subject to human validation.
-
-## Current Status
+## What is implemented today
 
 Implemented:
 
-* SQLite database creation and seeding
-* Streamlit scenario explorer
-* Scenario summaries
-* Rule-based recommendations
-* Human validation workflow
-* Safe mock Text-to-SQL flow
-* Domain Guard
-* Semantic Query Router
-* SQL Guard
-* Execution path transparency
-* Deterministic maintenance agent
-* Unit tests for guardrail layers
-* Hybrid query flow documentation
+- SQLite database with raw vibration samples;
+- synthetic data generation for multiple assets and scenarios;
+- time-domain vibration metrics;
+- FFT-based spectral features;
+- PSD-style visualization;
+- deterministic anomaly scoring;
+- severity classification;
+- rule-based recommended action plan;
+- Streamlit monitoring dashboard;
+- date-based monitoring filter;
+- Semantic AI Query interface;
+- Domain Guard;
+- keyword-based routing;
+- embedding-based semantic routing;
+- cosine similarity matching;
+- approved SQL templates;
+- SQL Guard;
+- query execution summary;
+- project documentation inside the app footer.
 
-Planned:
+Not implemented in the current version:
 
-* Expanded ML training workflow
-* Embedding-based semantic matching
-* Vector database for known questions and SQL templates
-* Technical RAG layer
-* Real LLM-based Text-to-SQL fallback
-* More advanced agentic orchestration
-* Deployment notes
+- external LLM API calls;
+- free-form LLM-generated SQL;
+- autonomous agents;
+- human-validation workflow inside the app;
+- trained ML anomaly detector;
+- autoencoder, CNN, or LSTM models;
+- model monitoring or MLOps pipeline.
 
-## How to Run
+---
 
-Install dependencies:
+## Architecture
 
-```bash
+High-level architecture:
+
+```text
++-------------------------+
+| Raw vibration simulator |
++------------+------------+
+             |
+             v
++-------------------------+
+| SQLite database         |
+| - assets                |
+| - scenarios             |
+| - vibration samples     |
+| - measurements          |
+| - spectral features     |
+| - diagnostics           |
++------------+------------+
+             |
+             v
++-------------------------+
+| Streamlit app           |
+| - Monitoring            |
+| - Semantic AI Query     |
++------------+------------+
+             |
+     +-------+--------+
+     |                |
+     v                v
++------------+   +----------------+
+| Signal UI  |   | Semantic Query |
+| FFT / PSD  |   | Guard + Router |
++------------+   +----------------+
+```
+
+---
+
+## Project structure
+
+```text
+hybrid-ai-predictive-maintenance/
+|
+|-- app/
+|   |-- streamlit_app.py
+|   |-- page_icon.png
+|   |-- background_sidebar.png
+|
+|-- data/
+|   |-- hybrid_ai_predictive_maintenance.sqlite3
+|
+|-- docs/
+|   |-- anomaly_scoring.md
+|   |-- project_positioning.md
+|
+|-- src/
+|   |-- database/
+|   |   |-- create_database.py
+|   |   |-- seed_database.py
+|   |   |-- queries.py
+|   |
+|   |-- llm/
+|   |   |-- domain_guard.py
+|   |   |-- semantic_query_router.py
+|   |   |-- embedding_router.py
+|   |   |-- sql_guard.py
+|   |   |-- text_to_sql.py
+|   |
+|   |-- agents/
+|   |-- analysis/
+|   |-- features/
+|   |-- ml/
+|   |-- prescription/
+|   |-- rag/
+|   |-- simulation/
+|
+|-- tests/
+|-- requirements.txt
+|-- README.md
+```
+
+Some folders are intentionally prepared for future expansion.
+
+---
+
+## How to run locally
+
+### 1. Create and activate a virtual environment
+
+Windows CMD:
+
+```cmd
+python -m venv hybrid_ai_st_env
+hybrid_ai_st_env\Scripts\activate
+```
+
+### 2. Install dependencies
+
+```cmd
 pip install -r requirements.txt
 ```
 
-Create and seed the database:
+### 3. Create and seed the database
 
-```bash
-python src/database/create_database.py
-python src/database/seed_database.py
+```cmd
+python -m src.database.create_database
+python -m src.database.seed_database
 ```
 
-Run the Streamlit app:
+### 4. Run tests
 
-```bash
-streamlit run app/streamlit_app.py
-```
-
-Run tests:
-
-```bash
+```cmd
 pytest
 ```
 
-## Limitations
+### 5. Run the app
 
-This project is a learning and demonstration environment.
+```cmd
+streamlit run app\streamlit_app.py
+```
 
-Current limitations:
+---
 
-* The database is pre-populated and synthetic.
-* The Text-to-SQL fallback is still mock-based.
-* The maintenance agent is deterministic.
-* The RAG layer is planned but not fully implemented yet.
-* The system does not connect to real-time industrial sensors.
-* The system must not be used to control industrial equipment directly.
+## Example Semantic AI questions
 
-## License
+Examples of supported natural-language-style questions:
 
-This project is intended for educational and portfolio purposes.
+```text
+Which assets have high risk?
+Show diagnostics with critical severity.
+What is the average anomaly score by scenario?
+Which equipment has the highest anomaly probability?
+Show assets with possible lubrication issues.
+Show structural looseness cases.
+```
+
+The system does not answer arbitrary questions. Unsupported or out-of-domain prompts are blocked or redirected to approved suggestions.
+
+---
+
+## Why not use a generative LLM in this version?
+
+A generative LLM could be useful in future versions for:
+
+- explaining asset condition in natural language;
+- summarizing diagnostic evidence;
+- generating SQL candidates under strict validation;
+- supporting agentic maintenance workflows;
+- preparing human-readable maintenance reports.
+
+However, for a public app using a private API key, generative inference introduces practical concerns:
+
+- API cost;
+- token usage limits;
+- key exposure risk;
+- prompt injection risk;
+- uncontrolled SQL generation risk;
+- unnecessary complexity for a first production-style demo.
+
+Therefore, this version intentionally demonstrates a lower-risk alternative:
+
+```text
+semantic retrieval and routing without external generative inference
+```
+
+The result is less flexible than a full LLM assistant, but more controlled, auditable, and cost-free to run.
+
+---
+
+## Roadmap
+
+Potential next steps:
+
+1. Refactor scoring logic out of `seed_database.py` into dedicated feature and scoring modules.
+2. Add a trained anomaly detection baseline, such as Isolation Forest or One-Class SVM.
+3. Add autoencoder-based anomaly detection for raw vibration windows.
+4. Explore CNN or LSTM models for sequence-based fault detection.
+5. Add optional LLM explanations behind a feature flag and daily token budget.
+6. Add optional Text-to-SQL generation under stricter SQL Guard validation.
+7. Add a real human-validation workflow for maintenance feedback.
+8. Add agentic orchestration only after the diagnostic and validation layers are mature.
+
+---
+
+## Positioning statement
+
+This project is not a claim that Semantic AI replaces LLMs or machine learning.
+
+It demonstrates a more specific idea:
+
+> In industrial contexts where cost, safety, and auditability matter, a controlled semantic layer using embeddings, cosine similarity, domain filters, and approved SQL templates can provide useful natural-language-style interaction without requiring paid generative inference.
+
+The broader architecture remains aligned with the industrial AI thesis:
+
+```text
+Physics-informed and ML models should provide the decision core.
+Semantic or language interfaces should make the system easier to query and understand.
+Agents, when added, should coordinate workflows rather than replace engineering validation.
+Humans remain accountable for operational decisions.
+```
